@@ -405,7 +405,8 @@ int DelLBVIPCall::Proceed()
 		new DelLBVIPCall(service_, cq_);
 		if (InitCheck() == INITCHECK)
 			return -1;
-		DPGRPC_LOG_INFO("delete LoadBalancer target called for id: %s", request_.loadbalancerid().c_str());
+		DPGRPC_LOG_INFO("delete LoadBalancer target called for id: %s removing target %s",
+				request_.loadbalancerid().c_str(), request_.targetip().address().c_str());
 		dp_fill_head(&request.com_head, call_type_, 0, 1);
 		snprintf(request.del_lb_vip.lb_id, DP_LB_ID_SIZE, "%s",
 				 request_.loadbalancerid().c_str());
