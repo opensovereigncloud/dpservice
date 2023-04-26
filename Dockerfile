@@ -43,7 +43,15 @@ RUN unzip dpdk-${DPDK_VER}.zip
 
 ENV DPDK_DIR=/workspace/dpdk-${DPDK_VER}
 
-COPY . .
+COPY meson.build meson.build
+COPY meson_options.txt meson_options.txt
+COPY src/ src/
+COPY include/ include/
+COPY test/ test/
+COPY hack/ hack/
+COPY proto/ proto/
+COPY tools/ tools/
+
 RUN cd $DPDK_DIR && patch -p1 < ../hack/dpdk_21_11_clang.patch
 
 RUN cd $DPDK_DIR && meson -Dmax_ethports=132 -Dplatform=generic -Ddisable_drivers=common/dpaax,\
@@ -63,7 +71,7 @@ RUN cd $DPDK_DIR/build && ninja
 RUN cd $DPDK_DIR/build && ninja install
 
 RUN CC=clang CXX=clang++ meson build && cd ./build && ninja
-RUN rm -rf build && meson build --buildtype=release && cd ./build && ninja
+#RUN rm -rf build && meson build --buildtype=release && cd ./build && ninja
 RUN rm -rf build && meson build -Denable_graphtrace=true -Denable_virtual_services=true && cd ./build && ninja
 
 FROM debian:11-slim
