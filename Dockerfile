@@ -70,7 +70,7 @@ vhost,gpudev build
 RUN cd $DPDK_DIR/build && ninja
 RUN cd $DPDK_DIR/build && ninja install
 
-RUN CC=clang CXX=clang++ meson build && cd ./build && ninja
+#RUN CC=clang CXX=clang++ meson build && cd ./build && ninja
 #RUN rm -rf build && meson build --buildtype=release && cd ./build && ninja
 RUN rm -rf build && meson build -Denable_graphtrace=true -Denable_virtual_services=true && cd ./build && ninja
 
