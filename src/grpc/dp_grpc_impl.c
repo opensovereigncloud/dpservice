@@ -846,7 +846,7 @@ static int dp_process_delnat(dp_request *req, dp_reply *rep)
 	rep->get_vip.vip.vip_addr = s_data->network_nat_ip;
 	dp_del_vm_dnat_ip(s_data->network_nat_ip, vm_vni);
 
-	DP_STATS_NAT_RESET_USED_PORT_CNT(port_id);
+	//DP_STATS_NAT_RESET_USED_PORT_CNT(port_id);
 
 	ret = dp_del_vm_network_snat_ip(dp_get_dhcp_range_ip4(port_id), dp_get_vm_vni(port_id));
 	if (ret)
