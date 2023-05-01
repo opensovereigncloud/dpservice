@@ -26,3 +26,6 @@ def test_network_nat_pkt_relay(prepare_ifaces, grpc_client):
 	dport = pkt[TCP].dport
 	assert dst_ip == "2a00:da8:fff6:1404:0:38:0:31" and dport == 2050, \
 		f"Wrong network-nat relayed packet (outer dst ipv6: {dst_ip}, dport: {dport})"
+
+	grpc_client.delneighnat(nat_vip, vni1, 2000, 2100)
+	grpc_client.delnat(VM1.name)

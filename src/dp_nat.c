@@ -438,16 +438,19 @@ void dp_nat_chg_ip(struct dp_flow *df_ptr, struct rte_ipv4_hdr *ipv4_hdr,
 }
 
 
-static int dp_cmp_network_nat_entry(struct network_nat_entry *entry, uint32_t nat_ipv4, uint8_t *nat_ipv6,
+static inline bool dp_cmp_network_nat_ip(struct network_nat_entry *entry, uint32_t nat_ipv4, uint8_t *nat_ipv6, uint32_t vni)
+{
+	return entry->vni == vni
+			&& ((nat_ipv4 != 0 && entry->nat_ip.nat_ip4 == nat_ipv4)
+				|| (nat_ipv6 != NULL && memcmp(nat_ipv6, entry->nat_ip.nat_ip6, sizeof(entry->nat_ip.nat_ip6)) == 0));
+}
+
+static inline bool dp_cmp_network_nat_entry(struct network_nat_entry *entry, uint32_t nat_ipv4, uint8_t *nat_ipv6,
 								uint32_t vni, uint16_t min_port, uint16_t max_port)
 {
-
-	if (((nat_ipv4 != 0 && entry->nat_ip.nat_ip4 == nat_ipv4)
-				|| (nat_ipv6 != NULL && memcmp(nat_ipv6, entry->nat_ip.nat_ip6, sizeof(entry->nat_ip.nat_ip6)) == 0))
-				&& entry->vni == vni && entry->port_range[0] == min_port && entry->port_range[1] == max_port)
-		return 1;
-	else
-		return 0;
+	return dp_cmp_network_nat_ip(entry, nat_ipv4, nat_ipv6, vni)
+			&& entry->port_range[0] == min_port
+			&& entry->port_range[1] == max_port;
 }
 
 // check if a port falls into the range of external nat's port range
@@ -513,6 +516,13 @@ int dp_del_network_nat_entry(uint32_t nat_ipv4, uint8_t *nat_ipv6,
 		if (dp_cmp_network_nat_entry(item, nat_ipv4, nat_ipv6, vni, min_port, max_port)) {
 			TAILQ_REMOVE(&nat_headp, item, entries);
 			rte_free(item);
+			// only delete the DNAT entry when this is the only range present for this IP
+			for (item = TAILQ_FIRST(&nat_headp); item != NULL; item = TAILQ_NEXT(item, entries)) {
+				if (dp_cmp_network_nat_ip(item, nat_ipv4, nat_ipv6, vni))
+					break;
+			}
+			if (!item)
+				dp_del_vm_dnat_ip(nat_ipv4, vni);
 			return EXIT_SUCCESS;
 		}
 	}
