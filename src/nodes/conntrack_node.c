@@ -236,7 +236,7 @@ static __rte_always_inline rte_edge_t get_next_index(struct rte_node *node, stru
 
 		memset(key, 0, sizeof(struct flow_key));
 		if (unlikely(dp_build_flow_key(key, m) < 0)) {
-			DPNODE_LOG_WARNING(node, "Failed to build a flow key");
+			DPNODE_LOG_DEBUG(node, "Failed to build a flow key");
 			return CONNTRACK_NEXT_DROP;
 		}
 

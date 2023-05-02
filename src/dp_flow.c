@@ -72,7 +72,7 @@ static int8_t dp_build_icmp_flow_key(struct dp_flow *df_ptr, struct flow_key *ke
 		return 0;
 	}
 
-	DPS_LOG_DEBUG("icmp type %u", df_ptr->l4_info.icmp_field.icmp_type);
+	DPS_LOG_WARNING("icmp type %u", df_ptr->l4_info.icmp_field.icmp_type);
 	return -1;
 }
 
@@ -171,7 +171,7 @@ void dp_delete_flow_key(struct flow_key *key)
 			dp_output_flow_key_info(key);
 		}
 	} else {
-		DPS_LOG_WARNING("Attempt to delete a non-existing hash key");
+		DPS_LOG_DEBUG("Attempt to delete a non-existing hash key");
 		dp_output_flow_key_info(key);
 	}
 
