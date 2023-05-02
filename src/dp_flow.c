@@ -72,7 +72,7 @@ static int8_t dp_build_icmp_flow_key(struct dp_flow *df_ptr, struct flow_key *ke
 		return 0;
 	}
 
-	DPS_LOG_WARNING("icmp type %u", df_ptr->l4_info.icmp_field.icmp_type);
+	DPS_LOG_DEBUG("icmp type %u", df_ptr->l4_info.icmp_field.icmp_type);
 	return -1;
 }
 
