@@ -71,7 +71,7 @@ struct dp_flow {
 	enum dp_periodic_type	periodic_type;
 	struct flow_value	*conntrack;
 #ifdef ENABLE_VIRTSVC
-	struct dp_virtsvc	*virtsvc;
+	struct dp_virtsvc	*virtsvc;  // virtual-service flows track connections separately
 #endif
 };
 static_assert(sizeof(struct dp_flow) <= DP_MBUF_PRIV_DATA_SIZE,
