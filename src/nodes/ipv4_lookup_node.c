@@ -47,6 +47,7 @@ static __rte_always_inline rte_edge_t get_next_index(__rte_unused struct rte_nod
 	} else {
 		df->tun_info.dst_vni = route.vni;
 		if (nxt_hop_is_pf) {
+			rte_memcpy(df->tun_info.ul_src_addr6, dp_get_vm_ul_ip6(m->port), sizeof(df->tun_info.ul_src_addr6));
 			rte_memcpy(df->tun_info.ul_dst_addr6, route.nh_ipv6, sizeof(df->tun_info.ul_dst_addr6));
 			df->flags.flow_type = DP_FLOW_TYPE_OUTGOING;
 		}
