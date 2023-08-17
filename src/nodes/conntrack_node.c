@@ -243,9 +243,11 @@ static __rte_always_inline rte_edge_t get_next_index(struct rte_node *node, stru
 			return CONNTRACK_NEXT_DROP;
 
 		if (prev_key)
-			key_cmp_result = dp_test_next_n_bytes_identical((const unsigned char *)prev_key,
-													(const unsigned char *)curr_key,
-													sizeof(struct flow_key));
+			// TODO this breaks the flushing of flow table by NAT/VIP/Neighnat
+			key_cmp_result = false;
+// 			key_cmp_result = dp_test_next_n_bytes_identical((const unsigned char *)prev_key,
+// 													(const unsigned char *)curr_key,
+// 													sizeof(struct flow_key));
 		if (!prev_key || !key_cmp_result) {
 			ret = dp_get_flow_data(key, (void **)&flow_val);
 			if (unlikely(DP_FAILED(ret))) {

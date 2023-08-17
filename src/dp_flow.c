@@ -423,6 +423,21 @@ void dp_process_aged_flows_non_offload(void)
 	}
 }
 
+// TODO(future PR) create proper enum for nat_type
+void dp_remove_nat_flows(uint16_t port_id, int nat_type)
+{
+	struct flow_value *flow_val = NULL;
+	const void *next_key;
+	uint32_t iter = 0;
+
+	while (rte_hash_iterate(ipv4_flow_tbl, &next_key, (void **)&flow_val, &iter) >= 0) {
+		if (flow_val->created_port_id == port_id && flow_val->nat_info.nat_type == nat_type) {
+			flow_val->aged = 1;
+			dp_ref_dec(&flow_val->ref_count);
+		}
+	}
+}
+
 hash_sig_t dp_get_conntrack_flow_hash_value(struct flow_key *key)
 {
 	//It is not necessary to first test if this key exists, since for now, this function

@@ -134,6 +134,7 @@ int dp_flow_init(int socket_id);
 void dp_flow_free();
 void dp_process_aged_flows(int port_id);
 void dp_process_aged_flows_non_offload(void);
+void dp_remove_nat_flows(uint16_t port_id, int nat_type); // TODO create proper enum!
 void dp_free_flow(struct dp_ref *ref);
 void dp_free_network_nat_port(struct flow_value *cntrack);
 

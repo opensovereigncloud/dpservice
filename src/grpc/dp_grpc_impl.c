@@ -1,4 +1,5 @@
 #include "dp_error.h"
+#include "dp_flow.h"
 #include "dp_lb.h"
 #include <time.h>
 #include "dp_lpm.h"
@@ -407,7 +408,8 @@ static int dp_process_delvip(dp_request *req, dp_reply *rep)
 	// because 1:1 VIP is not shared with anything
 	dp_del_dnat_ip(s_data->vip_ip, vm_vni);
 	dp_del_vm_snat_ip(vm_ip, vm_vni);
-
+	// TODO hotfix experimental
+	dp_remove_nat_flows(port_id, DP_FLOW_NAT_TYPE_VIP);
 	return DP_GRPC_OK;
 }
 
@@ -759,7 +761,8 @@ static int dp_process_delnat(dp_request *req, dp_reply *rep)
 
 	rep->get_vip.vip.vip_addr = s_data->network_nat_ip;
 	dp_del_vip_from_dnat(s_data->network_nat_ip, vm_vni);
-
+	// TODO hotfix experimental
+	dp_remove_nat_flows(port_id, DP_FLOW_NAT_TYPE_NETWORK_LOCAL);
 	return dp_del_vm_network_snat_ip(vm_ip, vm_vni);
 }
 
@@ -824,6 +827,10 @@ static int dp_process_del_neigh_nat(dp_request *req, dp_reply *rep)
 			return ret;
 
 		dp_del_vip_from_dnat(ntohl(req->del_nat_vip.vip.vip_addr), req->del_nat_vip.vni);
+		// TODO hotfix experimental
+		dp_remove_nat_flows(dp_port_get_pf0_id(), DP_FLOW_NAT_TYPE_NETWORK_NEIGH);
+		// TODO *of course* this needs to be done in one-pass!
+		dp_remove_nat_flows(dp_port_get_pf1_id(), DP_FLOW_NAT_TYPE_NETWORK_NEIGH);
 	} else
 		return DP_GRPC_ERR_BAD_IPVER;
 
