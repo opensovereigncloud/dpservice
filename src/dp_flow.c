@@ -433,7 +433,24 @@ void dp_remove_nat_flows(uint16_t port_id, int nat_type)
 	uint32_t iter = 0;
 
 	while (rte_hash_iterate(ipv4_flow_tbl, &next_key, (void **)&flow_val, &iter) >= 0) {
+		// NAT/VIP are in 1:1 relation to a VM (port_id), no need to check IP:port
 		if (flow_val->created_port_id == port_id && flow_val->nat_info.nat_type == nat_type) {
+			flow_val->aged = 1;
+			dp_ref_dec(&flow_val->ref_count);
+		}
+	}
+}
+
+void dp_remove_neighnat_flows(uint32_t ipv4, uint32_t vni, uint16_t min_port, uint16_t max_port)
+{
+	struct flow_value *flow_val = NULL;
+	const struct flow_key *next_key;
+	uint32_t iter = 0;
+
+	while (rte_hash_iterate(ipv4_flow_tbl, (const void **)&next_key, (void **)&flow_val, &iter) >= 0) {
+		if (next_key->vni == vni && next_key->ip_dst == ipv4
+			&& next_key->port_dst >= min_port && next_key->port_dst < max_port
+		) {
 			flow_val->aged = 1;
 			dp_ref_dec(&flow_val->ref_count);
 		}

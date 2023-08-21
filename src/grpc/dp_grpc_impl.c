@@ -1000,10 +1000,9 @@ static int dp_process_del_neigh_nat(dp_request *req, dp_reply *rep)
 			goto err;
 
 		dp_del_vip_from_dnat(ntohl(req->del_nat_vip.vip.vip_addr), req->del_nat_vip.vni);
-		// TODO hotfix experimental
-		dp_remove_nat_flows(dp_port_get_pf0_id(), DP_FLOW_NAT_TYPE_NETWORK_NEIGH);
-		// TODO *of course* this needs to be done in one-pass!
-		dp_remove_nat_flows(dp_port_get_pf1_id(), DP_FLOW_NAT_TYPE_NETWORK_NEIGH);
+		// TODO: experimental hotfix
+		dp_remove_neighnat_flows(ntohl(req->del_nat_vip.vip.vip_addr), req->del_nat_vip.vni,
+								 (uint16_t)req->del_nat_vip.port_range[0], (uint16_t)req->del_nat_vip.port_range[1]);
 	}
 	return ret;
 err:
