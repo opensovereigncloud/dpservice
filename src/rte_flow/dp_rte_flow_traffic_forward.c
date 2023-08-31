@@ -8,8 +8,16 @@
 
 #define DP_IPIP_ENCAP_HEADER_SIZE (sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv6_hdr))
 
-static const struct rte_flow_attr dp_flow_attr_ingress = {
+static const struct rte_flow_attr dp_flow_pf_attr_ingress = {
 	.group = 0,
+	.priority = 0,
+	.ingress = 1,
+	.egress = 0,
+	.transfer = 0,
+};
+
+static const struct rte_flow_attr dp_flow_vf_attr_ingress = {
+	.group = DP_RTE_FLOW_VNET_GROUP,
 	.priority = 0,
 	.ingress = 1,
 	.egress = 0,
@@ -24,8 +32,16 @@ static const struct rte_flow_attr dp_flow_attr_egress = {
 	.transfer = 0,
 };
 
-static const struct rte_flow_attr dp_flow_attr_transfer = {
+static const struct rte_flow_attr dp_flow_pf_attr_transfer = {
 	.group = 0,
+	.priority = 0,
+	.ingress = 0,
+	.egress = 0,
+	.transfer = 1,
+};
+
+static const struct rte_flow_attr dp_flow_vf_attr_transfer = {
+	.group = DP_RTE_FLOW_VNET_GROUP,
 	.priority = 0,
 	.ingress = 0,
 	.egress = 0,
@@ -229,7 +245,7 @@ static __rte_always_inline int dp_offload_handle_tunnel_encap_traffic(struct rte
 
 		dp_set_end_action(&hairpin_actions[hairpin_action_cnt++]);
 
-		if (DP_FAILED(dp_install_rte_flow_with_indirect(m->port, &dp_flow_attr_ingress,
+		if (DP_FAILED(dp_install_rte_flow_with_indirect(m->port, &dp_flow_vf_attr_ingress,
 														hairpin_pattern, hairpin_actions,
 														hairpin_age_action, df, hairpin_agectx))
 		) {
@@ -276,7 +292,7 @@ static __rte_always_inline int dp_offload_handle_tunnel_encap_traffic(struct rte
 		attr = &dp_flow_attr_egress;
 		t_port_id = dp_port_get_pf1_id();
 	} else {
-		attr = &dp_flow_attr_transfer;
+		attr = &dp_flow_vf_attr_transfer;
 		t_port_id = m->port;
 	}
 	if (DP_FAILED(dp_install_rte_flow_with_indirect(t_port_id, attr,
@@ -397,8 +413,8 @@ static __rte_always_inline int dp_offload_handle_tunnel_decap_traffic(struct rte
 
 	if (DP_FAILED(dp_install_rte_flow_with_indirect(m->port,
 													cross_pf_port
-														? &dp_flow_attr_ingress
-														: &dp_flow_attr_transfer,
+														? &dp_flow_pf_attr_ingress
+														: &dp_flow_pf_attr_transfer,
 													pattern, actions,
 													age_action, df, agectx))
 	) {
@@ -481,7 +497,7 @@ static __rte_always_inline int dp_offload_handle_local_traffic(struct rte_mbuf *
 	dp_set_end_action(&actions[action_cnt++]);
 
 	// TODO: this attribute 'dp_flow_attr_transfer' has not been tested with DPDK 22.11
-	if (DP_FAILED(dp_install_rte_flow_with_indirect(m->port, &dp_flow_attr_transfer,
+	if (DP_FAILED(dp_install_rte_flow_with_indirect(m->port, &dp_flow_pf_attr_transfer,
 													pattern, actions,
 													age_action, df, agectx))
 	) {
@@ -565,7 +581,7 @@ static __rte_always_inline int dp_offload_handle_in_network_traffic(struct rte_m
 	// bouncing back rule's expiration is taken care of by the rte flow rule expiration mechanism;
 	// no need to perform query to perform checking on expiration status, thus an indirect action is not needed
 
-	if (DP_FAILED(dp_install_rte_flow_with_age(m->port, &dp_flow_attr_ingress, pattern, actions, df->conntrack, agectx))) {
+	if (DP_FAILED(dp_install_rte_flow_with_age(m->port, &dp_flow_pf_attr_ingress, pattern, actions, df->conntrack, agectx))) {
 		dp_destroy_rte_flow_agectx(agectx);
 		return DP_ERROR;
 	}
