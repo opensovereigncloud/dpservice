@@ -290,7 +290,8 @@ static __rte_always_inline int dp_virtsvc_create_connection(struct dp_virtsvc *v
 		delete_key.vf_l4_port = conn->vf_l4_port;
 		ret = rte_hash_del_key(virtsvc->open_ports, &delete_key);
 		if (DP_FAILED(ret))
-			DPS_LOG_WARNING("Cannot delete virtual service NAT entry %s", DP_LOG_RET(ret));
+			DPS_LOG_WARNING("Cannot delete virtual service NAT entry", DP_LOG_RET(ret),
+							DP_LOG_PORTID(conn->vf_port_id), DP_LOG_PORT(conn->vf_l4_port));
 	}
 
 	ret = rte_hash_add_key_with_hash_data(virtsvc->open_ports, key, sig, (void *)(intptr_t)free_port);
