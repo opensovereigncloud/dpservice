@@ -497,7 +497,6 @@ static __rte_always_inline int dp_offload_handle_local_traffic(struct rte_mbuf *
 
 	dp_set_end_action(&actions[action_cnt++]);
 
-	// TODO: this attribute 'dp_flow_attr_transfer' has not been tested with DPDK 22.11
 	if (DP_FAILED(dp_install_rte_flow_with_indirect(m->port, &dp_flow_pf_attr_transfer,
 													pattern, actions,
 													age_action, df, agectx))
