@@ -27,11 +27,7 @@ static const struct rte_flow_attr dp_flow_attr_egress = {
 static const struct rte_flow_attr dp_flow_attr_transfer = {
 	.group = 0,
 	.priority = 0,
-#ifdef ENABLE_DPDK_22_11
 	.ingress = 0,
-#else
-	.ingress = 1,
-#endif
 	.egress = 0,
 	.transfer = 1,
 };
@@ -312,19 +308,15 @@ static __rte_always_inline int dp_offload_handle_tunnel_decap_traffic(struct rte
 	struct rte_flow_action_set_ipv4 set_ipv4;    // #3 (optional)
 	struct rte_flow_action_set_tp set_tp;        // #4 (optional)
 	struct rte_flow_action_age flow_age;         // #5
-#ifndef ENABLE_DPDK_22_11
-	struct rte_flow_action_queue redirect_queue; // #6 (replaces send_to_port)
-#endif
-	struct rte_flow_action_port_id send_to_port; // #6
+	struct rte_flow_action_queue redirect_queue; // #6 (choose one)
+	struct rte_flow_action_port_id send_to_port; // #6 (choose one)
 	struct rte_flow_action actions[7];            // + end
 	int action_cnt = 0;
 
 	// misc variables needed to create the flow
 	struct flow_age_ctx *agectx;
 	struct rte_flow_action *age_action;
-#ifndef ENABLE_DPDK_22_11
 	struct dp_port *port;
-#endif
 	struct rte_ether_hdr new_eth_hdr;
 	rte_be32_t actual_ol_ipv4_addr;
 	bool cross_pf_port;
@@ -385,7 +377,7 @@ static __rte_always_inline int dp_offload_handle_tunnel_decap_traffic(struct rte
 	age_action = &actions[action_cnt++];
 	dp_set_flow_age_action(age_action, &flow_age, df->conntrack->timeout_value, agectx);
 
-#ifndef ENABLE_DPDK_22_11
+	// TODO: this branch has not been tested with DPDK 22.11
 	if (cross_pf_port) {
 		// move this packet to the right hairpin rx queue of pf, so as to be moved to vf
 		port = dp_port_get_vf((uint16_t)df->nxt_hop);
@@ -398,16 +390,14 @@ static __rte_always_inline int dp_offload_handle_tunnel_decap_traffic(struct rte
 		dp_set_redirect_queue_action(&actions[action_cnt++], &redirect_queue,
 									 DP_NR_RESERVED_RX_QUEUES - 1 + port->peer_pf_hairpin_tx_rx_queue_offset);
 	} else
-#endif
 		dp_set_send_to_port_action(&actions[action_cnt++], &send_to_port, df->nxt_hop);
 
 	dp_set_end_action(&actions[action_cnt++]);
 
 	if (DP_FAILED(dp_install_rte_flow_with_indirect(m->port,
-#ifndef ENABLE_DPDK_22_11
-													cross_pf_port ? &dp_flow_attr_ingress :
-#endif
-													&dp_flow_attr_transfer,
+													cross_pf_port
+														? &dp_flow_attr_ingress
+														: &dp_flow_attr_transfer,
 													pattern, actions,
 													age_action, df, agectx))
 	) {
@@ -489,8 +479,7 @@ static __rte_always_inline int dp_offload_handle_local_traffic(struct rte_mbuf *
 
 	dp_set_end_action(&actions[action_cnt++]);
 
-	// TODO: this attribute has not been tested with DPDK 22.11,
-	// so maybe 'dp_flow_attr_transfer' should be ifdef'd too
+	// TODO: this attribute 'dp_flow_attr_transfer' has not been tested with DPDK 22.11
 	if (DP_FAILED(dp_install_rte_flow_with_indirect(m->port, &dp_flow_attr_transfer,
 													pattern, actions,
 													age_action, df, agectx))
