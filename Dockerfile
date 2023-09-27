@@ -137,7 +137,7 @@ bash-completion \
 WORKDIR /
 COPY --from=builder /workspace/build/src/dp_service \
 					/workspace/build/tools/dp_grpc_client \
-					/workspace/build/tools/dp_graphtrace \
+					/workspace/build/tools/dpservice-dump \
 					/workspace/github.com/onmetal/dpservice-cli \
 					/workspace/hack/prepare.sh \
 					/usr/local/bin
