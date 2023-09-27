@@ -254,7 +254,6 @@ int main(int argc, char **argv)
 {
 	int retval = EXIT_SUCCESS;
 	int eal_argcount;
-	enum dp_conf_runmode runmode;
 
 	// Read the config file first because it can contain EAL arguments
 	// (those need to be injected *before* rte_eal_init())
@@ -267,8 +266,7 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	runmode = dp_conf_parse_args(argc - eal_argcount, argv + eal_argcount);
-	switch (runmode) {
+	switch (dp_conf_parse_args(argc - eal_argcount, argv + eal_argcount)) {
 	case DP_CONF_RUNMODE_ERROR:
 		retval = EXIT_FAILURE;
 		break;
