@@ -86,9 +86,11 @@ COPY tools/ tools/
 # Needed for version extraction by meson
 COPY .git/ .git/
 
-#RUN CC=clang CXX=clang++ meson setup build && cd ./build && ninja
-#RUN rm -rf build && meson setup build --buildtype=release && cd ./build && ninja
-RUN rm -rf build && meson setup build -Denable_virtual_services=true && cd ./build && ninja
+RUN meson setup build -Denable_virtual_services=true && cd ./build && ninja
+
+FROM builder AS testbuilder
+RUN rm -rf build && meson setup build --buildtype=release && cd ./build && ninja
+RUN rm -rf build && CC=clang CXX=clang++ meson setup build && cd ./build && ninja
 
 FROM debian:12-slim as tester
 
@@ -109,10 +111,10 @@ python3-scapy \
 && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /
-COPY --from=builder /workspace/test ./test
-COPY --from=builder /workspace/build/src/dp_service ./build/src/dp_service
-COPY --from=builder /workspace/github.com/onmetal/dpservice-cli ./build
-COPY --from=builder /usr/local/lib /usr/local/lib
+COPY --from=testbuilder /workspace/test ./test
+COPY --from=testbuilder /workspace/build/src/dp_service ./build/src/dp_service
+COPY --from=testbuilder /workspace/github.com/onmetal/dpservice-cli ./build
+COPY --from=testbuilder /usr/local/lib /usr/local/lib
 RUN ldconfig
 
 WORKDIR /test
