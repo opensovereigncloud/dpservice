@@ -6,7 +6,7 @@ ARG DPSERVICE_FEATURES=""
 WORKDIR /workspace
 
 # Install prerequisite packages
-RUN apt-get update && apt-get upgrade && apt-get install -y --no-install-recommends ON \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends ON \
 libibverbs-dev \
 libmnl-dev \
 libnuma-dev \
