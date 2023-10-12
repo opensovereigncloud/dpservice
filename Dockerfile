@@ -1,5 +1,5 @@
 # Build image with DPDK, etc.
-FROM debian:12-slim as builder
+FROM debian:12-slim AS builder
 
 ARG DPDK_VER=22.11
 ARG DPSERVICE_FEATURES=""
@@ -75,7 +75,7 @@ RUN cd $DPDK_DIR/build && ninja install
 ADD https://github.com/ironcore-dev/dpservice-cli/releases/download/v0.1.7/github.com.onmetal.dpservice-cli_0.1.7_linux_amd64.tar.gz dpservice-cli.tgz
 RUN tar -xzf dpservice-cli.tgz
 
-# Now copy the rest to enable DPDK layer caching
+# Prepare tools and sources
 COPY meson.build meson.build
 COPY meson_options.txt meson_options.txt
 COPY src/ src/
@@ -87,21 +87,20 @@ COPY tools/ tools/
 # Needed for version extraction by meson
 COPY .git/ .git/
 
+# Compile dpservice-bin itself
 RUN meson setup build $DPSERVICE_FEATURES && ninja -C build
 
 
 # Extended build image for test-image
 FROM builder AS testbuilder
-RUN apt-get install -y --no-install-recommends ON \
-python3-pytest \
-python3-scapy
+ARG DPSERVICE_FEATURES=""
 RUN meson setup release_build $DPSERVICE_FEATURES --buildtype=release && ninja -C release_build
 RUN CC=clang CXX=clang++ meson setup clang_build $DPSERVICE_FEATURES && ninja -C clang_build
 RUN meson setup xtratest_build $DPSERVICE_FEATURES -Denable_tests=true && ninja -C xtratest_build
 
 
 # Test-image to run pytest
-FROM debian:12-slim as tester
+FROM debian:12-slim AS tester
 
 RUN apt-get update && apt-get install -y --no-install-recommends ON \
 libibverbs-dev \
@@ -134,7 +133,7 @@ ENTRYPOINT ["./runtest.py", "../build", "../xtratest_build"]
 
 
 # Deployed pod image itself
-FROM debian:12-slim as production
+FROM debian:12-slim AS production
 
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends ON \
 libibverbs-dev \
