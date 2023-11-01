@@ -7,7 +7,7 @@ set -x
 [ -z "$MTR_GITLAB_PASSWORD" ] && exit 4
 
 if [ ! -f ./github_token ]; then
-	if [ -z "$GITHUB_TOKEN ]; then
+	if [ -z "$GITHUB_TOKEN" ]; then
 		echo "missing mandatory github_token"
 		exit 5
 	else
