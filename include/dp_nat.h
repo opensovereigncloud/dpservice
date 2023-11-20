@@ -14,14 +14,6 @@ extern "C" {
 
 #define DP_NETWORK_NAT_ALL_VNI		0
 
-enum {
-	DP_NAT_CHG_NONE,
-	DP_NAT_CHG_SRC_IP,
-	DP_NAT_CHG_DST_IP,
-	DP_CHG_UL_DST_IP,
-	DP_LB_RECIRC,
-};
-
 struct nat_key {
 	uint32_t	ip;
 	uint32_t	vni;
