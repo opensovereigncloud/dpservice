@@ -204,8 +204,7 @@ static bool dp_lb_is_back_ip_inserted(struct lb_value *val, const uint8_t *b_ip)
 //  - since LB IP is a constant, only a quadruple is actually used
 static __rte_always_inline int dp_lb_modulo_backend(struct lb_value *val, const struct lb_port *lb_port, uint32_t src_ip, rte_be16_t src_port)
 {
-	uint64_t chksum;
-	int pos;
+	uint64_t chksum, pos;
 
 	// dest(lb) IP/VNI are constant for every LB
 	chksum = lb_port->protocol;		// LB supports multiple protocols per LB
@@ -288,7 +287,7 @@ uint8_t *dp_lb_get_backend_ip(uint32_t ol_ip, uint32_t vni, rte_be16_t port, uin
 	if (pos < 0)
 		return NULL;
 
-	lb_val->last_sel_pos = pos;
+	lb_val->last_sel_pos = (uint16_t)pos;
 	return (uint8_t *)&lb_val->back_end_ips[pos][0];
 }
 
