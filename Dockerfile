@@ -3,6 +3,8 @@ FROM debian:12-slim AS builder
 
 ARG DPDK_VER=22.11
 ARG DPSERVICE_FEATURES=""
+ARG CLI_VERSION=0.1.9
+ARG EXPORTER_VERSION=0.1.8
 
 WORKDIR /workspace
 
@@ -14,7 +16,6 @@ libnuma-dev \
 numactl \
 libnuma1 \
 unzip \
-wget \
 make \
 gcc \
 g++ \
@@ -44,17 +45,18 @@ libpcap0.8-dev \
 linux-headers-${OSARCH}
 
 # Download DPDK
-RUN wget http://git.dpdk.org/dpdk/snapshot/dpdk-${DPDK_VER}.zip
-RUN unzip dpdk-${DPDK_VER}.zip
+ADD http://fast.dpdk.org/rel/dpdk-${DPDK_VER}.tar.xz dpdk.tar.xz
+RUN tar -xJf dpdk.tar.xz
 
 ENV DPDK_DIR=/workspace/dpdk-${DPDK_VER}
 
 # Copy DPDK patches
 COPY hack/*.patch hack/
-RUN cd $DPDK_DIR && patch -p1 < ../hack/dpdk_22_11_gcc12.patch
-RUN cd $DPDK_DIR && patch -p1 < ../hack/dpdk_22_11_log.patch
-RUN cd $DPDK_DIR && patch -p1 < ../hack/dpdk_22_11_telemetry_key.patch
-RUN cd $DPDK_DIR && patch -p1 < ../hack/dpdk_22_11_ethdev_conversion.patch
+RUN cd $DPDK_DIR \
+&& patch -p1 < ../hack/dpdk_22_11_gcc12.patch \
+&& patch -p1 < ../hack/dpdk_22_11_log.patch \
+&& patch -p1 < ../hack/dpdk_22_11_telemetry_key.patch \
+&& patch -p1 < ../hack/dpdk_22_11_ethdev_conversion.patch
 
 # Compile DPDK
 RUN cd $DPDK_DIR && meson setup -Dmax_ethports=132 -Dplatform=generic -Ddisable_drivers=common/dpaax,\
@@ -74,8 +76,9 @@ RUN cd $DPDK_DIR/build && ninja
 RUN cd $DPDK_DIR/build && ninja install
 
 # Get companion binaries from other repos
-ADD https://github.com/ironcore-dev/dpservice-cli/releases/download/v0.1.7/github.com.onmetal.dpservice-cli_0.1.7_linux_amd64.tar.gz dpservice-cli.tgz
-RUN tar -xzf dpservice-cli.tgz
+ADD https://github.com/ironcore-dev/dpservice-cli/releases/download/v${CLI_VERSION}/github.com.ironcore-dev.dpservice-cli_${CLI_VERSION}_linux_amd64.tar.gz dpservice-cli.tgz
+ADD https://github.com/ironcore-dev/prometheus-dpdk-exporter/releases/download/v${EXPORTER_VERSION}/prometheus-dpdk-exporter_${EXPORTER_VERSION}_linux_amd64.tar.gz exporter.tgz
+RUN tar -xzf dpservice-cli.tgz && tar -xzf exporter.tgz
 
 # Prepare tools and sources
 COPY meson.build meson.build
@@ -129,9 +132,9 @@ python3-scapy \
 WORKDIR /
 COPY --from=testbuilder /workspace/test ./test
 COPY --from=testbuilder /workspace/build/src/dpservice-bin ./build/src/dpservice-bin
-COPY --from=testbuilder /workspace/github.com/onmetal/dpservice-cli ./build
+COPY --from=testbuilder /workspace/github.com/ironcore-dev/dpservice-cli ./build
 COPY --from=testbuilder /workspace/xtratest_build/src/dpservice-bin ./xtratest_build/src/dpservice-bin
-COPY --from=testbuilder /workspace/github.com/onmetal/dpservice-cli ./xtratest_build
+COPY --from=testbuilder /workspace/github.com/ironcore-dev/dpservice-cli ./xtratest_build
 COPY --from=testbuilder /usr/local/lib /usr/local/lib
 RUN ldconfig
 
@@ -159,11 +162,13 @@ bash-completion \
 && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /
-COPY --from=builder /workspace/build/src/dpservice-bin \
-					/workspace/build/tools/dump/dpservice-dump \
-					/workspace/github.com/onmetal/dpservice-cli \
-					/workspace/hack/prepare.sh \
-					/usr/local/bin
+COPY --from=builder \
+/workspace/build/src/dpservice-bin \
+/workspace/build/tools/dump/dpservice-dump \
+/workspace/github.com/ironcore-dev/dpservice-cli \
+/workspace/prometheus-dpdk-exporter \
+/workspace/hack/prepare.sh \
+/usr/local/bin
 COPY --from=builder /usr/local/lib /usr/local/lib
 RUN ldconfig
 
