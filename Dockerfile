@@ -73,7 +73,11 @@ vhost,gpudev build -Ddisable_apps="*" -Dtests=false
 RUN cd $DPDK_DIR/build && ninja
 RUN cd $DPDK_DIR/build && ninja install
 
-# Prepare tools and sources
+# Get companion binaries from other repos
+ADD https://github.com/ironcore-dev/dpservice-cli/releases/download/v0.1.9/github.com.ironcore-dev.dpservice-cli_0.1.9_linux_amd64.tar.gz dpservice-cli.tgz
+RUN tar -xzf dpservice-cli.tgz
+
+# Now copy the rest to enable DPDK layer caching
 COPY meson.build meson.build
 COPY meson_options.txt meson_options.txt
 COPY src/ src/
@@ -84,13 +88,6 @@ COPY proto/ proto/
 COPY tools/ tools/
 # Needed for version extraction by meson
 COPY .git/ .git/
-
-# TODO this is here and not before dpservice-bin because the tool repos are not public
-# therefore downloading using 'ADD' is not possible
-RUN --mount=type=secret,id=github_token,dst=/run/secrets/github_token \
-sh -c 'GITHUB_TOKEN=$(if [ -f /run/secrets/github_token ]; then cat /run/secrets/github_token; else echo ""; fi) \
-&& ./hack/rel_download.sh -dir=exporter -owner=onmetal -repo=prometheus-dpdk-exporter -pat=$GITHUB_TOKEN \
-&& ./hack/rel_download.sh -dir=client -owner=onmetal -repo=dpservice-cli -strip=2 -pat=$GITHUB_TOKEN'
 
 # Compile dpservice-bin itself
 RUN meson setup build $DPSERVICE_FEATURES && ninja -C build
@@ -132,9 +129,9 @@ python3-scapy \
 WORKDIR /
 COPY --from=testbuilder /workspace/test ./test
 COPY --from=testbuilder /workspace/build/src/dpservice-bin ./build/src/dpservice-bin
-COPY --from=testbuilder /workspace/client/* ./build
+COPY --from=testbuilder /workspace/github.com/ironcore-dev/dpservice-cli ./build
 COPY --from=testbuilder /workspace/xtratest_build/src/dpservice-bin ./xtratest_build/src/dpservice-bin
-COPY --from=testbuilder /workspace/client/* ./xtratest_build
+COPY --from=testbuilder /workspace/github.com/ironcore-dev/dpservice-cli ./xtratest_build
 COPY --from=testbuilder /usr/local/lib /usr/local/lib
 RUN ldconfig
 
@@ -164,8 +161,7 @@ bash-completion \
 WORKDIR /
 COPY --from=builder /workspace/build/src/dpservice-bin \
 					/workspace/build/tools/dump/dpservice-dump \
-					/workspace/client/* \
-					/workspace/exporter/* \
+					/workspace/github.com/ironcore-dev/dpservice-cli \
 					/workspace/hack/prepare.sh \
 					/usr/local/bin
 COPY --from=builder /usr/local/lib /usr/local/lib
