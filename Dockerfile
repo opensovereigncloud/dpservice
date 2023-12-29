@@ -70,12 +70,9 @@ vhost,gpudev build -Ddisable_apps="*" -Dtests=false
 RUN cd $DPDK_DIR/build && ninja
 RUN cd $DPDK_DIR/build && ninja install
 
-# Copy additional repo's tools
-COPY hack/rel_download.sh hack/rel_download.sh
-RUN --mount=type=secret,id=github_token,dst=/run/secrets/github_token \
-sh -c 'GITHUB_TOKEN=$(if [ -f /run/secrets/github_token ]; then cat /run/secrets/github_token; else echo ""; fi) \
-&& ./hack/rel_download.sh -dir=exporter -owner=onmetal -repo=prometheus-dpdk-exporter -pat=$GITHUB_TOKEN \
-&& ./hack/rel_download.sh -dir=client -owner=onmetal -repo=dpservice-cli -strip=2 -pat=$GITHUB_TOKEN'
+# Get companion binaries from other repos
+ADD https://github.com/ironcore-dev/dpservice-cli/releases/download/v0.1.9/github.com.ironcore-dev.dpservice-cli_0.1.9_linux_amd64.tar.gz dpservice-cli.tgz
+RUN tar -xzf dpservice-cli.tgz
 
 # Now copy the rest to enable DPDK layer caching
 COPY meson.build meson.build
@@ -114,7 +111,7 @@ python3-scapy \
 WORKDIR /
 COPY --from=builder /workspace/test ./test
 COPY --from=builder /workspace/build/src/dp_service ./build/src/dp_service
-COPY --from=builder /workspace/client/* ./build
+COPY --from=builder /workspace/github.com/ironcore-dev/dpservice-cli ./build
 COPY --from=builder /usr/local/lib /usr/local/lib
 RUN ldconfig
 
@@ -123,7 +120,7 @@ ENTRYPOINT ["pytest-3", "-x", "-v"]
 
 FROM debian:12-slim as production
 
-RUN apt-get update && apt-get upgrade && apt-get install -y --no-install-recommends ON \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends ON \
 libibverbs-dev \
 numactl \
 libnuma1 \
@@ -141,8 +138,7 @@ WORKDIR /
 COPY --from=builder /workspace/build/src/dp_service \
 					/workspace/build/tools/dp_grpc_client \
 					/workspace/build/tools/dp_graphtrace \
-					/workspace/client/* \
-					/workspace/exporter/* \
+					/workspace/github.com/ironcore-dev/dpservice-cli \
 					/workspace/hack/prepare.sh \
 					/usr/local/bin
 COPY --from=builder /usr/local/lib /usr/local/lib
