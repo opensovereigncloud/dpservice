@@ -71,7 +71,7 @@ RUN cd $DPDK_DIR/build && ninja
 RUN cd $DPDK_DIR/build && ninja install
 
 # Get companion binaries from other repos
-ADD https://github.com/ironcore-dev/dpservice-cli/releases/download/v0.1.9/github.com.ironcore-dev.dpservice-cli_0.1.9_linux_amd64.tar.gz dpservice-cli.tgz
+ADD https://github.com/ironcore-dev/dpservice-cli/releases/download/v0.1.7/github.com.onmetal.dpservice-cli_0.1.7_linux_amd64.tar.gz dpservice-cli.tgz
 RUN tar -xzf dpservice-cli.tgz
 
 # Now copy the rest to enable DPDK layer caching
@@ -111,7 +111,7 @@ python3-scapy \
 WORKDIR /
 COPY --from=builder /workspace/test ./test
 COPY --from=builder /workspace/build/src/dp_service ./build/src/dp_service
-COPY --from=builder /workspace/github.com/ironcore-dev/dpservice-cli ./build
+COPY --from=builder /workspace/github.com/onmetal/dpservice-cli ./build
 COPY --from=builder /usr/local/lib /usr/local/lib
 RUN ldconfig
 
@@ -138,7 +138,7 @@ WORKDIR /
 COPY --from=builder /workspace/build/src/dp_service \
 					/workspace/build/tools/dp_grpc_client \
 					/workspace/build/tools/dp_graphtrace \
-					/workspace/github.com/ironcore-dev/dpservice-cli \
+					/workspace/github.com/onmetal/dpservice-cli \
 					/workspace/hack/prepare.sh \
 					/usr/local/bin
 COPY --from=builder /usr/local/lib /usr/local/lib
