@@ -74,7 +74,7 @@ RUN cd $DPDK_DIR/build && ninja
 RUN cd $DPDK_DIR/build && ninja install
 
 # Get companion binaries from other repos
-ADD https://github.com/ironcore-dev/dpservice-cli/releases/download/v0.1.9/github.com.ironcore-dev.dpservice-cli_0.1.9_linux_amd64.tar.gz dpservice-cli.tgz
+ADD https://github.com/ironcore-dev/dpservice-cli/releases/download/v0.1.7/github.com.onmetal.dpservice-cli_0.1.7_linux_amd64.tar.gz dpservice-cli.tgz
 RUN tar -xzf dpservice-cli.tgz
 
 # Now copy the rest to enable DPDK layer caching
