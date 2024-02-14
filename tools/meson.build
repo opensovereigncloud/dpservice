@@ -12,3 +12,11 @@ graphtrace_client_sources = [
 executable('dp_graphtrace', graphtrace_client_sources,
   include_directories: [includes],
   dependencies: [dpdk_dep] )
+
+lbtable_client_sources = [
+  'dp_lbtable.c',
+  '../src/dp_error.c',
+]
+executable('dp_lbtable', lbtable_client_sources,
+  include_directories: [includes],
+  dependencies: [dpdk_dep] )
