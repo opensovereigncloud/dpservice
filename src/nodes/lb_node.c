@@ -51,7 +51,8 @@ static __rte_always_inline rte_edge_t get_next_index(__rte_unused struct rte_nod
 			return LB_NEXT_PACKET_RELAY;
 		}
 
-		target_ip6 = dp_lb_get_backend_ip(dst_ip, vni, df->l4_info.trans_port.dst_port, df->l4_type);
+		target_ip6 = dp_lb_get_backend_ip(dst_ip, vni, df->l4_info.trans_port.dst_port, df->l4_type,
+										  ntohl(df->src.src_addr), df->l4_info.trans_port.src_port);
 		if (!target_ip6)
 			return LB_NEXT_DROP;
 
