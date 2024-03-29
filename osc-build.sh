@@ -16,14 +16,13 @@ DOCKER_CRE=podman # or docker
 COMMITID=$(git rev-parse --short HEAD)
 #COMMITDATE=$(git show -s --format=%cd --date=format:'%d%m%Y' $COMMITID)
 COMMITDATE=$(date +%d%m%Y)
-TAG="osc/onmetal/dp-service:$COMMITDATE-$COMMITID"
+TAG="$MTR_GITLAB_HOST/osc/onmetal/dp-service:$COMMITDATE-$COMMITID"
 
 echo "$MTR_GITLAB_PASSWORD" | $DOCKER_CRE login --username "$MTR_GITLAB_LOGIN" --password-stdin "$MTR_GITLAB_HOST"
 
-$DOCKER_CRE build --build-arg="DPSERVICE_FEATURES=-Denable_virtual_services=true" -t "$TAG" .
+$DOCKER_CRE build --platform=linux/amd64 --build-arg="DPSERVICE_FEATURES=-Denable_virtual_services=true" -t "$TAG" .
 
-$DOCKER_CRE tag "$TAG" "$MTR_GITLAB_HOST/$TAG"
-$DOCKER_CRE push -q "$MTR_GITLAB_HOST/$TAG"
+$DOCKER_CRE push "$TAG"
 $DOCKER_CRE logout "$MTR_GITLAB_HOST"
 
 # uncomment this if you want to reconfigure MTR image as public; then also MTR_GITLAB_TOKEN needs to be defined
