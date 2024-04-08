@@ -619,9 +619,11 @@ int dp_allocate_network_snat_port(struct snat_data *snat_data, struct dp_flow *d
 	uint64_t timestamp;
 
 	if (df->l3_type == RTE_ETHER_TYPE_IPV4) {
+		portmap_key.src_ip.ip_type = RTE_ETHER_TYPE_IPV4;
 		portmap_key.src_ip.ipv4 = iface_src_ip;
 		portoverload_tbl_key.dst_ip = ntohl(df->dst.dst_addr);
 	} else if (df->l3_type == RTE_ETHER_TYPE_IPV6) {
+		portmap_key.src_ip.ip_type = RTE_ETHER_TYPE_IPV6;
 		rte_memcpy(portmap_key.src_ip.ipv6, df->src.src_addr6, sizeof(portmap_key.src_ip.ipv6));
 		portoverload_tbl_key.dst_ip = ntohl(*(rte_be32_t *)&df->dst.dst_addr6[12]);
 	} else {
@@ -731,11 +733,13 @@ int dp_remove_network_snat_port(const struct flow_value *cntrack)
 	if (DP_FAILED(ret) && ret != -ENOENT)
 		return ret;
 
-	if (cntrack->flow_key[DP_FLOW_DIR_ORG].l3_type == RTE_ETHER_TYPE_IPV4)
+	if (cntrack->flow_key[DP_FLOW_DIR_ORG].l3_type == RTE_ETHER_TYPE_IPV4) {
+		portmap_key.src_ip.ip_type = RTE_ETHER_TYPE_IPV4;
 		portmap_key.src_ip.ipv4 = cntrack->flow_key[DP_FLOW_DIR_ORG].l3_src.ip4;
-	else if (cntrack->flow_key[DP_FLOW_DIR_ORG].l3_type == RTE_ETHER_TYPE_IPV6)
+	} else if (cntrack->flow_key[DP_FLOW_DIR_ORG].l3_type == RTE_ETHER_TYPE_IPV6) {
+		portmap_key.src_ip.ip_type = RTE_ETHER_TYPE_IPV6;
 		rte_memcpy(portmap_key.src_ip.ipv6, cntrack->flow_key[DP_FLOW_DIR_ORG].l3_src.ip6, sizeof(portmap_key.src_ip.ipv6));
-	else
+	} else
 		return DP_GRPC_ERR_BAD_IPVER;
 
 	portmap_key.iface_src_port = cntrack->flow_key[DP_FLOW_DIR_ORG].src.port_src;
