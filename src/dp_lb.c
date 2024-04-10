@@ -280,11 +280,7 @@ uint8_t *dp_lb_get_backend_ip(struct flow_key *flow_key, uint32_t vni, uint32_t 
 	int pos;
 
 	lb_key.vni = vni;
-	// TODO this could be a copy constructor once flow_key is converted
-	if (flow_key->is_v6)
-		DP_FILL_IPKEY6(lb_key.ip, flow_key->l3_dst.ip6);
-	else
-		DP_FILL_IPKEY4(lb_key.ip, flow_key->l3_dst.ip4);
+	dp_copy_ipkey(&lb_key.ip, &flow_key->l3_dst);
 
 	if (rte_hash_lookup_data(ipv4_lb_tbl, &lb_key, (void **)&lb_val) < 0)
 		return NULL;

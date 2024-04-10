@@ -34,6 +34,12 @@ struct dp_ip_addr_key {
 } __rte_packed;
 
 static __rte_always_inline
+bool dp_ipkey_match4(const struct dp_ip_addr_key *key, uint32_t ipv4)
+{
+	return !key->is_v6 && key->_data[0] == ipv4;
+}
+
+static __rte_always_inline
 void dp_fill_ipaddr(struct dp_ip_address *dst_addr, const struct dp_ip_addr_key *src_key)
 {
 	dst_addr->is_v6 = src_key->is_v6;
@@ -51,6 +57,16 @@ void dp_fill_ipkey(struct dp_ip_addr_key *dst_key, const struct dp_ip_address *s
 	dst_key->_data[1] = src_addr->_data[1];
 	dst_key->_data[2] = src_addr->_data[2];
 	dst_key->_data[3] = src_addr->_data[3];
+}
+
+static __rte_always_inline
+void dp_copy_ipkey(struct dp_ip_addr_key *dst_key, const struct dp_ip_addr_key *src_key)
+{
+	dst_key->is_v6 = src_key->is_v6;
+	dst_key->_data[0] = src_key->_data[0];
+	dst_key->_data[1] = src_key->_data[1];
+	dst_key->_data[2] = src_key->_data[2];
+	dst_key->_data[3] = src_key->_data[3];
 }
 // TODO macro/inline to copy the array
 
