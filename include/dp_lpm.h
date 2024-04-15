@@ -36,7 +36,7 @@ extern "C" {
 
 struct dp_iface_route {
 	uint32_t vni;
-	uint8_t  nh_ipv6[16];
+	uint8_t  nh_ipv6[DP_IPV6_ADDR_SIZE];
 };
 
 const struct dp_port *dp_get_ip4_out_port(const struct dp_port *in_port,

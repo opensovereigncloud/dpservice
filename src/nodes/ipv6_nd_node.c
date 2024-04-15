@@ -20,8 +20,8 @@ int ipv6_nd_node_append_vf_tx(uint16_t port_id, const char *tx_node_name)
 	return dp_node_append_vf_tx(DP_NODE_GET_SELF(ipv6_nd), next_tx_index, port_id, tx_node_name);
 }
 
-static const uint8_t dp_unspecified_ipv6[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-static const uint8_t dp_multicast_ipv6[16] = { 0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 };
+static const uint8_t dp_unspecified_ipv6[DP_IPV6_ADDR_SIZE] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static const uint8_t dp_multicast_ipv6[DP_IPV6_ADDR_SIZE] = { 0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 };
 
 uint16_t dp_ipv6_fill_ra(struct rte_ipv6_hdr *ipv6_hdr, struct ra_msg *ra_msg, const uint8_t *src_mac_addr)
 {

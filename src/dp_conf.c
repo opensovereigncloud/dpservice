@@ -31,7 +31,7 @@
 // custom storage variables and getters
 static char eal_a_pf0[DP_EAL_A_MAXLEN] = {0};
 static char eal_a_pf1[DP_EAL_A_MAXLEN] = {0};
-static uint8_t underlay_ip[16] = {0};
+static uint8_t underlay_ip[DP_IPV6_ADDR_SIZE] = {0};
 static struct dp_conf_dhcp_dns dhcp_dns = {0};
 static struct dp_conf_dhcp_dns dhcpv6_dns = {0};
 #ifdef ENABLE_VIRTSVC

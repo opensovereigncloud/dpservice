@@ -11,13 +11,14 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include <rte_byteorder.h>
+#include "dp_ipaddr.h"
 
 #ifdef ENABLE_VIRTSVC
 struct dp_conf_virtsvc {
 	uint8_t    proto;
 	rte_be32_t virtual_addr;
 	rte_be16_t virtual_port;
-	uint8_t    service_addr[16];
+	uint8_t    service_addr[DP_IPV6_ADDR_SIZE];
 	rte_be16_t service_port;
 };
 

@@ -16,7 +16,7 @@ extern "C" {
 int dp_install_isolated_mode_ipip(uint16_t port_id, uint8_t proto_id);
 
 #ifdef ENABLE_VIRTSVC
-int dp_install_isolated_mode_virtsvc(uint16_t port_id, uint8_t proto_id, const uint8_t svc_ipv6[16], uint16_t svc_port);
+int dp_install_isolated_mode_virtsvc(uint16_t port_id, uint8_t proto_id, const uint8_t svc_ipv6[DP_IPV6_ADDR_SIZE], uint16_t svc_port);
 #endif
 
 #ifdef __cplusplus

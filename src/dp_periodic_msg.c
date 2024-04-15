@@ -12,8 +12,8 @@
 #include "nodes/arp_node.h"
 #include "nodes/ipv6_nd_node.h"
 
-static uint8_t dp_mc_ipv6[16] = { 0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 };
-static uint8_t dp_mc_mac[6] = { 0x33, 0x33, 0x00, 0x00, 0x00, 0x01 };
+static uint8_t dp_mc_ipv6[DP_IPV6_ADDR_SIZE] = { 0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 };
+static uint8_t dp_mc_mac[RTE_ETHER_ADDR_LEN] = { 0x33, 0x33, 0x00, 0x00, 0x00, 0x01 };
 
 static __rte_always_inline bool dp_is_ip_set(struct dp_port *port, uint16_t eth_type)
 {

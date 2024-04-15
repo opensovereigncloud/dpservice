@@ -14,7 +14,7 @@
 #include "grpc/dp_grpc_responder.h"
 
 static const uint32_t dp_router_gw_ip4 = RTE_IPV4(169, 254, 0, 1);
-static const uint8_t dp_router_gw_ip6[16] = {0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01};
+static const uint8_t dp_router_gw_ip6[DP_IPV6_ADDR_SIZE] = {0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01};
 
 static __rte_always_inline int dp_lpm_fill_route_tables(const struct dp_port *port)
 {

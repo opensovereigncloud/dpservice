@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <rte_mbuf.h>
+#include "dp_ipaddr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,7 +36,7 @@ struct dp_event_msg {
 };
 
 struct dp_capture_hdr_config {
-	uint8_t capture_node_ipv6_addr[16];
+	uint8_t capture_node_ipv6_addr[DP_IPV6_ADDR_SIZE];
 	uint16_t capture_udp_src_port;
 	uint16_t capture_udp_dst_port;
 };

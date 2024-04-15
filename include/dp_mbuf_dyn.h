@@ -58,11 +58,11 @@ struct dp_flow {
 	uint16_t	l3_type;  //layer-3 for inner packets. it can be crafted or extracted from raw frames
 	uint32_t	l3_payload_length;  //layer-3 playload length for inner packets.
 	union {
-		uint8_t		dst_addr6[16];
+		uint8_t		dst_addr6[DP_IPV6_ADDR_SIZE];
 		rte_be32_t	dst_addr;
 	} dst;
 	union {
-		uint8_t		src_addr6[16];
+		uint8_t		src_addr6[DP_IPV6_ADDR_SIZE];
 		rte_be32_t	src_addr;
 	} src;
 	rte_be32_t	nat_addr;
@@ -84,8 +84,8 @@ struct dp_flow {
 	uint32_t		dp_flow_hash;  // this can be brought down to 1-bit if needed (only chooses PF0/PF1 in ipv4_lookup)
 
 	struct {
-		uint8_t		ul_src_addr6[16];
-		uint8_t		ul_dst_addr6[16];
+		uint8_t		ul_src_addr6[DP_IPV6_ADDR_SIZE];
+		uint8_t		ul_dst_addr6[DP_IPV6_ADDR_SIZE];
 		uint16_t 	l3_type;	//layer-3 type in ethernet header of outer packets
 		uint8_t		proto_id;	//proto_id in outer ipv6 header
 		uint32_t	dst_vni;
