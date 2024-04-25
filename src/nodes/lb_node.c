@@ -37,7 +37,7 @@ static __rte_always_inline rte_edge_t get_next_index(__rte_unused struct rte_nod
 {
 	struct dp_flow *df = dp_get_flow_ptr(m);
 	struct flow_value *cntrack = df->conntrack;
-	uint8_t *target_ip6;
+	const uint8_t *target_ip6;
 	uint32_t vni;
 
 	if (!cntrack)

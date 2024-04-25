@@ -17,6 +17,19 @@ extern "C" {
 #define DP_IPV6_ADDR_SIZE 16
 static_assert(sizeof(uint64_t) * 2 == DP_IPV6_ADDR_SIZE, "DP_IPV6_ADDR_SIZE is invalid");
 
+union dp_ipv6 {
+	const uint8_t bytes[DP_IPV6_ADDR_SIZE];
+	uint64_t _data[DP_IPV6_ADDR_SIZE / sizeof(uint64_t)];
+};
+static_assert(sizeof(union dp_ipv6) == DP_IPV6_ADDR_SIZE, "union dp_ipv6 has padding");
+
+static __rte_always_inline
+void dp_copy_ipv6(union dp_ipv6 *dst, const union dp_ipv6 *src)
+{
+	dst->_data[0] = src->_data[0];
+	dst->_data[1] = src->_data[1];
+}
+
 // TODO(plague): do something for naked ipv6, that uses uint8_t, thus cannot check size properly
 
 // TODO(plague): move NAT64 handling here (part of the above) + grep for [12] which means NAT64 ipv6 -> ipv4 conversion and wrap it
@@ -77,6 +90,15 @@ void dp_copy_ipaddr(struct dp_ip_address *dst, const struct dp_ip_address *src)
 	((uint64_t *)(ADDR)._data)[0] = ((const uint64_t *)(IPV6))[0]; \
 	((uint64_t *)(ADDR)._data)[1] = ((const uint64_t *)(IPV6))[1]; \
 } while (0)
+// TODO with dp_ipv6 type this is now possible:
+static __rte_always_inline
+void dp_set_ipaddr6(struct dp_ip_address *addr, const union dp_ipv6 *ipv6)
+{
+	addr->_is_v6 = true;
+	((uint64_t *)addr->_data)[0] = ipv6->_data[0];  // TODO put the ipv6 union inside the address structure!
+	((uint64_t *)addr->_data)[1] = ipv6->_data[1];
+	// TODO maybe a macro/inline to set IPv6 for the new type!
+}
 
 #define DP_SET_IPADDR4(ADDR, IPV4) do { \
 	(ADDR)._is_v6 = false; \

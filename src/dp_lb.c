@@ -172,7 +172,7 @@ bool dp_is_ip_lb(struct dp_flow *df, uint32_t vni)
 static bool dp_lb_is_back_ip_inserted(struct lb_value *val, const uint8_t *b_ip)
 {
 	for (int i = 0; i < DP_LB_MAX_IPS_PER_VIP; ++i)
-		if (rte_rib6_is_equal((uint8_t *)&val->back_end_ips[i][0], b_ip))
+		if (rte_rib6_is_equal(val->back_end_ips[i].bytes, b_ip))
 			return true;
 	return false;
 }
@@ -187,7 +187,7 @@ static __rte_always_inline bool dp_lb_port_match(struct lb_value *lb_val, uint16
 	return false;
 }
 
-uint8_t *dp_lb_get_backend_ip(struct flow_key *flow_key, uint32_t vni)
+const uint8_t *dp_lb_get_backend_ip(struct flow_key *flow_key, uint32_t vni)
 {
 	struct lb_value *lb_val = NULL;
 	struct lb_key lb_key;
@@ -206,7 +206,7 @@ uint8_t *dp_lb_get_backend_ip(struct flow_key *flow_key, uint32_t vni)
 
 	int pos = lb_val->maglev_hash[dp_get_conntrack_flow_hash_value(flow_key) % DP_LB_MAGLEV_LOOKUP_SIZE];
 
-	return (uint8_t *)&lb_val->back_end_ips[pos][0];
+	return lb_val->back_end_ips[pos].bytes;  // TODO could maybe return the address union
 }
 
 int dp_get_lb_back_ips(const void *id_key, struct dp_grpc_responder *responder)
@@ -224,11 +224,11 @@ int dp_get_lb_back_ips(const void *id_key, struct dp_grpc_responder *responder)
 	dp_grpc_set_multireply(responder, sizeof(*reply));
 
 	for (int i = 0; i < DP_LB_MAX_IPS_PER_VIP; ++i) {
-		if (lb_val->back_end_ips[i][0] != 0) {
+		if (lb_val->back_end_ips[i].bytes[0] != 0) {  // TODO is zero
 			reply = dp_grpc_add_reply(responder);
 			if (!reply)
 				return DP_GRPC_ERR_OUT_OF_MEMORY;
-			DP_SET_IPADDR6(reply->addr, lb_val->back_end_ips[i]);
+			dp_set_ipaddr6(&reply->addr, &lb_val->back_end_ips[i]);
 		}
 	}
 

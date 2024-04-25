@@ -66,6 +66,7 @@ static uint32_t dp_djb_hash(const uint8_t ipv6[])
 	const uint8_t *byte = ipv6;
 	int c;
 
+	// TODO wait, how does this stop?
 	while ((c = *byte++))
 		hash = ((hash << 5) + hash) + c;
 
@@ -87,8 +88,8 @@ static int *dp_maglev_permutation(struct lb_value *lbval)
 	}
 
 	for (i = 0; i < lbval->back_end_cnt; i++) {
-		offset = dp_murmur_hash2(lbval->back_end_ips[i]) % DP_LB_MAGLEV_LOOKUP_SIZE;
-		skip = (dp_djb_hash(lbval->back_end_ips[i]) % (DP_LB_MAGLEV_LOOKUP_SIZE - 1)) + 1;
+		offset = dp_murmur_hash2(lbval->back_end_ips[i].bytes) % DP_LB_MAGLEV_LOOKUP_SIZE;  // TODO dp_murmur_hash2(union dp_ipv6) ?
+		skip = (dp_djb_hash(lbval->back_end_ips[i].bytes) % (DP_LB_MAGLEV_LOOKUP_SIZE - 1)) + 1;  // TODO dp_djb_hash(union dp_ipv6) ?
 
 		for (j = 0; j < DP_LB_MAGLEV_LOOKUP_SIZE; j++)
 			permutation[i * DP_LB_MAGLEV_LOOKUP_SIZE + j] = (offset + j * skip) % DP_LB_MAGLEV_LOOKUP_SIZE;
@@ -171,16 +172,16 @@ static bool dp_is_ip_greater(const uint8_t *ip1, const uint8_t *ip2)
 	return false;
 }
 
-static void dp_shift_back_end_ips(uint8_t ips[][DP_IPV6_ADDR_SIZE], int start_pos, int end_pos, bool shift_up)
+static void dp_shift_back_end_ips(union dp_ipv6 ips[], int start_pos, int end_pos, bool shift_up)
 {
 	int i;
 
 	if (shift_up)
 		for (i = end_pos; i > start_pos; i--)
-			rte_memcpy(&ips[i], &ips[i - 1], DP_IPV6_ADDR_SIZE);
+			dp_copy_ipv6(&ips[i], &ips[i - 1]);
 	else
 		for (i = start_pos; i < end_pos; i++)
-			rte_memcpy(&ips[i], &ips[i + 1], DP_IPV6_ADDR_SIZE);
+			dp_copy_ipv6(&ips[i], &ips[i + 1]);
 }
 
 int dp_add_maglev_backend(struct lb_value *lbval, const uint8_t *back_ip)
@@ -192,7 +193,7 @@ int dp_add_maglev_backend(struct lb_value *lbval, const uint8_t *back_ip)
 
 	/* Find the correct position to insert the new back ip */
 	for (i = 0; i < lbval->back_end_cnt; i++) {
-		if (dp_is_ip_greater(lbval->back_end_ips[i], back_ip)) {
+		if (dp_is_ip_greater(lbval->back_end_ips[i].bytes, back_ip)) {  // TODO function should accept the struct
 			insert_pos = i;
 			break;
 		}
