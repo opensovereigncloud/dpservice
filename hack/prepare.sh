@@ -238,9 +238,9 @@ function make_config() {
 }
 
 # main
-if [[ -e $CONFIG ]]; then
-	err "File $CONFIG already exists"
-fi
+#if [[ -e $CONFIG ]]; then
+#	err "File $CONFIG already exists"
+#fi
 
 while [[ $# -gt 0 ]]; do
 	case $1 in
