@@ -349,6 +349,8 @@ static struct dp_port *dp_port_init_proxy_tap(uint16_t port_id, struct rte_eth_d
 
 	// HACK temporary
 	// copy over PF1 neighbor mac to make communication possible
+	struct rte_ether_addr testmac = { .addr_bytes = { 0x74, 0x86, 0xe2, 0x9b, 0xcd, 0x27 } };
+	rte_ether_addr_copy(&testmac, &port->neigh_mac);
 	rte_ether_addr_copy(&port->neigh_mac, &dp_get_port_by_pf_index(1)->neigh_mac);
 
 	return port;
