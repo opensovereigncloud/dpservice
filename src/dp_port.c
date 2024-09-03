@@ -347,6 +347,10 @@ static struct dp_port *dp_port_init_proxy_tap(uint16_t port_id, struct rte_eth_d
 		return NULL;
 	}
 
+	// HACK temporary
+	// copy over PF1 neighbor mac to make communication possible
+	rte_ether_addr_copy(&port->neigh_mac, &dp_get_port_by_pf_index(1)->neigh_mac);
+
 	return port;
 }
 #endif
