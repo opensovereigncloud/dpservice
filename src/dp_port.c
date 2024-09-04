@@ -131,7 +131,7 @@ static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *de
 		ret = rte_eth_rx_queue_setup(port->port_id, i, 1024,
 									 port->socket_id,
 									 &rxq_conf,
-									 dp_layer->rte_mempool);
+									 dp_layer->rte_mempool);  // TODO this can be different for PF1+proxy and the rest?
 		if (DP_FAILED(ret)) {
 			DPS_LOG_ERR("Rx queue setup failed", DP_LOG_PORT(port), DP_LOG_RET(ret));
 			return DP_ERROR;
@@ -347,8 +347,8 @@ static struct dp_port *dp_port_init_proxy_tap(uint16_t port_id, struct rte_eth_d
 		return NULL;
 	}
 
-	DPS_LOG_INFO("INIT setting proxy tap MTU to 2034", DP_LOG_PORT(port));
-	ret = rte_eth_dev_set_mtu(port->port_id, 2034);
+	DPS_LOG_INFO("INIT setting proxy tap MTU to 9100", DP_LOG_PORT(port));
+	ret = rte_eth_dev_set_mtu(port->port_id, 9100);
 	if (DP_FAILED(ret)) {
 		DPS_LOG_ERR("MTU setting failed", DP_LOG_PORT(port), DP_LOG_RET(ret));
 		return NULL;
