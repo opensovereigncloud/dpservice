@@ -347,8 +347,8 @@ static struct dp_port *dp_port_init_proxy_tap(uint16_t port_id, struct rte_eth_d
 		return NULL;
 	}
 
-	DPS_LOG_INFO("INIT setting proxy tap MTU to 2034", DP_LOG_PORT(port));
-	ret = rte_eth_dev_set_mtu(port->port_id, 2034);
+	DPS_LOG_INFO("INIT setting proxy tap MTU to 9100", DP_LOG_PORT(port));
+	ret = rte_eth_dev_set_mtu(port->port_id, 9100);
 	if (DP_FAILED(ret)) {
 		DPS_LOG_ERR("MTU setting failed", DP_LOG_PORT(port), DP_LOG_RET(ret));
 		return NULL;
