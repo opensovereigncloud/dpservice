@@ -37,7 +37,7 @@ static int dp_dpdk_layer_init_unsafe(void)
 												   DP_MEMPOOL_CACHE_SIZE, DP_MBUF_PRIV_DATA_SIZE,
 												   //RTE_MBUF_DEFAULT_BUF_SIZE,
 												   //(RTE_MBUF_DEFAULT_DATAROOM + RTE_PKTMBUF_HEADROOM),
-												   (9114 + RTE_PKTMBUF_HEADROOM),
+												   (9118 + RTE_PKTMBUF_HEADROOM),
 												   rte_socket_id());
 	if (!dp_layer.rte_mempool) {
 		DPS_LOG_ERR("Cannot create mbuf pool", DP_LOG_RET(rte_errno));

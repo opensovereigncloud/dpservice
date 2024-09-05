@@ -40,7 +40,7 @@ static int dp_graphtrace_init_memory(void)
 	graphtrace.mempool = rte_pktmbuf_pool_create(DP_GRAPHTRACE_MEMPOOL_NAME, DP_GRAPHTRACE_RINGBUF_SIZE-1,
 											 DP_MEMPOOL_CACHE_SIZE, DP_MBUF_PRIV_DATA_SIZE + sizeof(struct dp_graphtrace_pktinfo),
 											 //RTE_MBUF_DEFAULT_BUF_SIZE,
-											 (9114 + RTE_PKTMBUF_HEADROOM),
+											 (9118 + RTE_PKTMBUF_HEADROOM),
 											 rte_socket_id());
 	if (!graphtrace.mempool) {
 		DPS_LOG_ERR("Cannot allocate graphtrace pool", DP_LOG_RET(rte_errno));
