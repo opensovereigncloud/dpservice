@@ -57,7 +57,7 @@ const char *dp_get_eal_pf1_proxy_dev_name(void)
 
 const char *dp_generate_eal_pf1_proxy_params(void)
 {
-	snprintf(eal_pf1_proxy_params, sizeof(eal_pf1_proxy_params), "net_tap0,iface=%s,mac=%s",
+	snprintf(eal_pf1_proxy_params, sizeof(eal_pf1_proxy_params), "net_tap0,iface=%s,mac=%s,persist",
 				dp_get_eal_pf1_proxy_dev_name(), dp_get_eal_pf1_proxy_mac_addr());
 	return eal_pf1_proxy_params;
 }
