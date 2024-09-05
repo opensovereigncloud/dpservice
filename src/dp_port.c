@@ -173,6 +173,11 @@ static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *de
 		if (DP_FAILED(dp_get_pf_neigh_mac(dev_info->if_index, &pf_neigh_mac, &port->own_mac)))
 			return DP_ERROR;
 		rte_ether_addr_copy(&pf_neigh_mac, &port->neigh_mac);
+		// TODO some wrapper
+		char mac[18];
+
+		snprintf(mac, sizeof(mac), RTE_ETHER_ADDR_PRT_FMT, RTE_ETHER_ADDR_BYTES(&pf_neigh_mac));
+		DPS_LOG_INFO("Setting neighboring MAC", _DP_LOG_STR("mac", mac), DP_LOG_PORT(port));
 	}
 
 	return DP_OK;
@@ -354,11 +359,13 @@ static struct dp_port *dp_port_init_proxy_tap(uint16_t port_id, struct rte_eth_d
 		return NULL;
 	}
 
-	// HACK temporary
-	// copy over PF1 neighbor mac to make communication possible
-	struct rte_ether_addr testmac = { .addr_bytes = { 0x74, 0x86, 0xe2, 0x9b, 0xcd, 0x27 } };
-	rte_ether_addr_copy(&testmac, &port->neigh_mac);
-	rte_ether_addr_copy(&port->neigh_mac, &dp_get_port_by_pf_index(1)->neigh_mac);
+	// TODO some wrapper
+	struct rte_ether_addr pf1_neigh_mac = dp_get_port_by_pf_index(1)->neigh_mac;
+	char mac[18];
+
+	snprintf(mac, sizeof(mac), RTE_ETHER_ADDR_PRT_FMT, RTE_ETHER_ADDR_BYTES(&pf1_neigh_mac));
+	DPS_LOG_INFO("Setting neighboring MAC", _DP_LOG_STR("mac", mac), DP_LOG_PORT(port));
+	rte_ether_addr_copy(&pf1_neigh_mac, &port->neigh_mac);
 
 	return port;
 }
