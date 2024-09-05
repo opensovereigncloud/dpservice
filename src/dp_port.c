@@ -537,6 +537,10 @@ void dp_ports_stop(void)
 	// in multiport-mode, PF0 needs to be stopped last
 	struct dp_port *pf0 = dp_get_port_by_pf_index(0);
 
+#ifdef ENABLE_PF1_PROXY
+	dp_stop_eth_port(&_dp_pf_proxy_tap_port);
+#endif
+
 	// without stopping started ports, DPDK complains
 	DP_FOREACH_PORT(&_dp_ports, port) {
 		if (port->allocated && port != pf0)
