@@ -390,10 +390,13 @@ static int dp_port_set_up_hairpins(void)
 void dp_start_all(void)
 {
 	int ret;
+	int counter = 0;
 
 	DP_FOREACH_PORT(&_dp_ports, port) {
-		if (!port->is_pf && port->port_id != 109 && port->port_id != 41 && port->port_id != 14) {
-			DPS_LOG_INFO("Starting", DP_LOG_PORT(port));
+		if (!port->is_pf) {
+			if (counter > 4)
+				break;
+			DPS_LOG_INFO("Starting", DP_LOG_PORT(port), DP_LOG_VALUE(++counter));
 			ret = dp_start_port(port);
 			if (DP_FAILED(ret))
 				DPS_LOG_ERR("Failed to start", DP_LOG_PORT(port), DP_LOG_RET(ret));
