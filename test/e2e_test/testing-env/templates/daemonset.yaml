@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Values.dsName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+      matchLabels:
+        name: {{ .Values.dsName }}
+  template:
+    metadata:
+      labels:
+        name: {{ .Values.dsName }}
+    spec:
+      tolerations:
+      - operator: Exists
+      containers:
+      - image: {{ .Values.image.repository }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: {{ .Values.dsName }}
+        command: ["sh", "-c", "tail -f /dev/null"]
+        terminationMessagePath: /dev/termination-log
