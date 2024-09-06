@@ -387,6 +387,20 @@ static int dp_port_set_up_hairpins(void)
 	return DP_OK;
 }
 
+void dp_start_all(void)
+{
+	int ret;
+
+	DP_FOREACH_PORT(&_dp_ports, port) {
+		if (!port->is_pf) {
+			DPS_LOG_INFO("Starting", DP_LOG_PORT(port));
+			ret = dp_start_port(port);
+			if (DP_FAILED(ret))
+				DPS_LOG_ERR("Failed to start", DP_LOG_PORT(port), DP_LOG_RET(ret));
+		}
+	}
+}
+
 static int dp_port_init_pf(const char *pf_name)
 {
 	uint16_t port_id;

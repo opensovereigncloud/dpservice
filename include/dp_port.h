@@ -199,6 +199,8 @@ struct dp_port *dp_get_port_by_pf_index(uint16_t index)
 	return index < RTE_DIM(_dp_pf_ports) ? _dp_pf_ports[index] : NULL;
 }
 
+void dp_start_all(void);
+
 #ifdef ENABLE_PF1_PROXY
 static __rte_always_inline
 const struct dp_port *dp_get_pf_proxy_tap_port(void)

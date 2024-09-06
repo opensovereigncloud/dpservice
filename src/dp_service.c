@@ -191,6 +191,8 @@ static int init_interfaces(void)
 		|| DP_FAILED(dp_vnf_init(pf0_socket_id)))
 		return DP_ERROR;
 
+	dp_start_all();
+
 	return DP_OK;
 }
 
