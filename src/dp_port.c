@@ -392,7 +392,7 @@ void dp_start_all(void)
 	int ret;
 
 	DP_FOREACH_PORT(&_dp_ports, port) {
-		if (!port->is_pf) {
+		if (!port->is_pf && port->port_id != 109 && port->port_id != 41 && port->port_id != 14) {
 			DPS_LOG_INFO("Starting", DP_LOG_PORT(port));
 			ret = dp_start_port(port);
 			if (DP_FAILED(ret))
