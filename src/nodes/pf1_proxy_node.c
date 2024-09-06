@@ -53,6 +53,9 @@ static uint16_t pf1_proxy_node_process(struct rte_graph *graph,
 	// this code should closely resemble the one inside those functions
 
 	for (uint16_t i = 0; i < nb_objs; ++i) {
+		dp_graphtrace_next_burst(node, &objs[i], 1, PF1_PROXY_NEXT_DROP);
+		rte_node_enqueue(graph, node, PF1_PROXY_NEXT_DROP, &objs[i], 1);
+		continue;
 		if (DP_FAILED(pf1_proxy_packet(node, objs[i]))) {
 			dp_graphtrace_next_burst(node, &objs[i], 1, PF1_PROXY_NEXT_DROP);
 			rte_node_enqueue(graph, node, PF1_PROXY_NEXT_DROP, &objs[i], 1);

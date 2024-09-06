@@ -98,8 +98,11 @@ static int graph_main_loop(__rte_unused void *arg)
 
 	dp_log_set_thread_name("worker");
 
-	while (!force_quit)
+	while (!force_quit) {
+		usleep(100000);
+		continue;
 		rte_graph_walk(graph);
+	}
 
 	return 0;
 }

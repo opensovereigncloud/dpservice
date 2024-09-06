@@ -145,6 +145,8 @@ static int dp_graph_init_nodes(void)
 
 	DP_FOREACH_PORT(ports, port) {
 		port_id = port->port_id;
+		if (port_id == 1)
+			continue;
 
 		// need to have one Rx and one Tx node per port
 		if (DP_FAILED(rx_node_create(port_id, 0))

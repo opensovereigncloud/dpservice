@@ -173,8 +173,8 @@ static int init_interfaces(void)
 	if (DP_FAILED(dp_start_port(dp_get_port_by_pf_index(0))))
 		return DP_ERROR;
 
-	if (DP_FAILED(dp_start_port(dp_get_port_by_pf_index(1))))
-		return DP_ERROR;
+// 	if (DP_FAILED(dp_start_port(dp_get_port_by_pf_index(1))))
+// 		return DP_ERROR;
 
 #ifdef ENABLE_PF1_PROXY
 	if (DP_FAILED(dp_start_pf_proxy_tap_port()))
