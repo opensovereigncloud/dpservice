@@ -6,17 +6,19 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"io"
+	"log"
 	"sync"
 	"time"
 
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/fatih/color"
 	flag "github.com/spf13/pflag"
-	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -24,23 +26,31 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/client-go/util/homedir"
 )
 
-const dsName = "overlaytest"
+const (
+	dsName = "overlaytest"
+	port   = 16909
+)
 
-var retries int
+var (
+	retries                 int
+	ping, curl, verbose     bool
+	fromAZ, toAZ, namespace string
+)
 
-type test struct {
-	from   string
-	fromIP string
-	fromAZ string
-	to     string
-	toIP   string
-	toAZ   string
-	kind   string
-	result bool
-	err    error
+// TODO: add id for rerun possibility
+type testCase struct {
+	Id     uint16 `json:"id"`
+	From   string `json:"from"`
+	FromIP string `json:"from-ip"`
+	FromAZ string `json:"from-az"`
+	To     string `json:"to"`
+	ToIP   string `json:"to-ip"`
+	ToAZ   string `json:"to-az"`
+	Kind   string `json:"kind"`
+	Result bool   `json:"result"`
+	Error  string `json:"error"`
 }
 
 type testObject struct {
@@ -49,40 +59,30 @@ type testObject struct {
 }
 
 func main() {
-	var kubeConfigPath *string
-	var verbose, ping, curl bool
-	var namespace, port, fromAZ, toAZ string
-	var createDS, deleteDS, rerun bool
+	var kubeConfigPath string
+	var rerun int
 	var failedTests uint8
 
-	// TODO: add flag for parallel tests -- by default running in parallel without flag
-	//		 test only specified AZ-AZ combination -- done, flags from-az and to-az
-	//		 add verbose mode -- added as flag
-	//		 rerun only failed tests -- added as flag, needs more work
+	// TODO:
+	//		 rerun specified tests -- currently only 1 test allowed
 	//		 add docs
-	//		 add makefile
+	//		 add makefile -- done
 	flag.StringVarP(&namespace, "namespace", "n", "dpservice-test", "Namespace of the Daemonset")
 	flag.BoolVarP(&verbose, "verbose", "v", false, "Show verbose output")
-	// TODO: by default create and only if specified don't delete ds -- done
-	flag.BoolVarP(&createDS, "create-ds", "c", true, "If Daemonset should be created before tests")
-	flag.BoolVarP(&deleteDS, "delete-ds", "d", true, "If Daemonset should be deleted after tests")
 	flag.BoolVarP(&ping, "ping", "p", false, "If ping should be tested")
-	flag.BoolVarP(&curl, "curl", "u", false, "If curl should be tested")
-	flag.BoolVarP(&rerun, "rerun", "r", false, "If curl should be tested")
+	flag.BoolVarP(&curl, "curl", "c", false, "If curl should be tested")
+	// TODO: change rerun to slice
+	flag.IntVarP(&rerun, "rerun", "r", 0, "Test ID to rerun")
 	// TODO: remove retries and only keep rerun
 	flag.IntVarP(&retries, "retries", "i", 0, "Maximum retries for each test")
 	flag.StringVarP(&fromAZ, "from-az", "f", "all", "Tests from specified AZ")
 	flag.StringVarP(&toAZ, "to-az", "t", "all", "Tests to specified AZ")
+	flag.StringVarP(&kubeConfigPath, "kubeconfig", "k", "", "location of your kubeconfig file")
 
-	if home := homedir.HomeDir(); home != "" {
-		kubeConfigPath = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "location of your kubeconfig file")
-	} else {
-		kubeConfigPath = flag.String("kubeconfig", "", "location of your kubeconfig file")
-	}
 	flag.Parse()
-	fmt.Printf("Using kubeconfig: %s\n", *kubeConfigPath)
+	fmt.Printf("Using kubeconfig: %s\n", kubeConfigPath)
 
-	kubeConfig, err := clientcmd.BuildConfigFromFlags("", *kubeConfigPath)
+	kubeConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 	if err != nil {
 		fmt.Printf("Error getting kubernetes config: %v\n", err.Error())
 		os.Exit(1)
@@ -94,191 +94,112 @@ func main() {
 		os.Exit(1)
 	}
 
-	if createDS {
-		// deploy daemonset
-		// TODO: add retry if old daemonset is still terminating
-		deployDaemonSet(namespace, clientset)
-		time.Sleep(2 * time.Second)
-		// wait for it to be ready
-		for i := 0; i < 3; i++ {
-			ds, err := clientset.AppsV1().DaemonSets(namespace).Get(context.Background(), dsName, metav1.GetOptions{})
-			if err != nil {
-				fmt.Printf("Error getting daemonset: %v\n", err.Error())
-				os.Exit(1)
-			}
-			if ds.Status.DesiredNumberScheduled != ds.Status.NumberReady {
-				sleep := time.Duration(i+1) * time.Second * 5
-				fmt.Printf("Daemonset \"%s\" is not running on all nodes (%d/%d). Retry in %v seconds...\n", dsName, ds.Status.NumberReady, ds.Status.DesiredNumberScheduled, sleep.Seconds())
-				time.Sleep(sleep)
-				continue
-			} else {
-				fmt.Printf("Daemonset \"%s\" is ready.\n", dsName)
-				break
-			}
+	// check if DaemonSet is ready
+	for i := 0; i < 3; i++ {
+		ds, err := clientset.AppsV1().DaemonSets(namespace).Get(context.Background(), dsName, metav1.GetOptions{})
+		if err != nil {
+			fmt.Printf("Error getting daemonset: %v\n", err.Error())
+			os.Exit(1)
+		}
+		if ds.Status.DesiredNumberScheduled != ds.Status.NumberReady {
+			duration := time.Duration(i+1) * time.Second * 5
+			fmt.Printf("Daemonset \"%s\" is not running on all nodes (%d/%d). Retry in %v seconds...\n", dsName, ds.Status.NumberReady, ds.Status.DesiredNumberScheduled, duration.Seconds())
+			time.Sleep(duration)
+			continue
+		} else {
+			fmt.Printf("Daemonset \"%s\" is ready.\n", dsName)
+			break
 		}
 	}
 
-	// list pods of daemonset that are in Running phase
+	// list pods of DaemonSet that are in Running phase
 	pods, err := listPods(namespace, clientset, fmt.Sprintf("name=%s", dsName))
 	if err != nil {
 		fmt.Printf("Could not get pods: %s", err.Error())
 		os.Exit(1)
 	}
-	fmt.Println("Pods count:", len(pods.Items))
 
-	tests := make([]test, 0)
-	testIps := map[string]testObject{}
-	for _, pod := range pods.Items {
-		testIps[pod.Status.PodIP] = testObject{AZ: getAZ(pod.Spec.NodeName), name: pod.Name}
-		testIps[pod.Status.HostIP] = testObject{AZ: getAZ(pod.Spec.NodeName), name: pod.Spec.NodeName}
-		testIps["1.1.1.1"] = testObject{AZ: "Internet", name: "cloudflare"}
-	}
-
-	fmt.Printf("Starting tests with max %d retries per test from %s to %s.\n----------\n", retries, fromAZ, toAZ)
-	wg := new(sync.WaitGroup)
-	for _, pod := range pods.Items {
-		if getAZ(pod.Spec.NodeName) == fromAZ || fromAZ == "all" {
-			wg.Add(1)
-			go func(pod v1.Pod) {
-				defer wg.Done()
-				fmt.Printf("Pod: %s (%s) on node %s (%s) test started.\n", pod.Name, pod.Status.PodIP, pod.Spec.NodeName, getAZ(pod.Spec.NodeName))
-
-				if ping {
-					for ip, dst := range testIps {
-						currentTest := test{
-							from:   pod.Name,
-							fromIP: pod.Status.PodIP,
-							fromAZ: getAZ(pod.Spec.NodeName),
-							to:     dst.name,
-							toAZ:   dst.AZ,
-							toIP:   ip,
-							kind:   "ping",
-						}
-						if dst.AZ == toAZ || toAZ == "all" {
-							_, _, err := testPing(kubeConfig, &pod, ip)
-							if err != nil {
-								currentTest.result = false
-								currentTest.err = err
-							} else {
-								currentTest.result = true
-							}
-							tests = append(tests, currentTest)
-						}
-					}
-				}
-
-				if curl {
-					for ip, dst := range testIps {
-						currentTest := test{}
-						if dst.AZ == toAZ || toAZ == "all" {
-							if strings.Contains(dst.name, "shoot") {
-								currentTest = test{
-									from:   pod.Name,
-									fromIP: pod.Status.PodIP,
-									fromAZ: getAZ(pod.Spec.NodeName),
-									to:     dst.name,
-									toAZ:   dst.AZ,
-									toIP:   ip,
-									kind:   "curl",
-								}
-								port = "16909"
-							} else if dst.AZ == "Internet" {
-								currentTest = test{
-									from:   pod.Name,
-									fromIP: pod.Status.PodIP,
-									fromAZ: getAZ(pod.Spec.NodeName),
-									to:     dst.name,
-									toIP:   ip,
-									toAZ:   "Internet",
-									kind:   "curl",
-								}
-								port = ""
-							} else {
-								continue
-							}
-							stdout, _, err := testCurl(kubeConfig, &pod, ip, port)
-							if err == nil && getHttpCode(stdout) > 199 && getHttpCode(stdout) < 400 {
-								//msg += fmt.Sprintf("failed: %s\n", err.Error())
-								currentTest.result = true
-							} else {
-								//msg += fmt.Sprintf("OK! HTTP code: %d\n", getHttpCode(stdout))
-								currentTest.result = false
-								currentTest.err = err
-							}
-							tests = append(tests, currentTest)
-						}
-					}
-				}
-				fmt.Printf("Pod: %s (%s) on node %s (%s) test ended.\n", pod.Name, pod.Status.PodIP, pod.Spec.NodeName, getAZ(pod.Spec.NodeName))
-			}(pod)
+	// prepare test cases based on filter
+	var tests []testCase
+	if rerun != 0 {
+		// Read the JSON file
+		file, err := os.Open("test_results.json")
+		if err != nil {
+			log.Fatalf("Error opening file: %v", err)
 		}
-	}
-	wg.Wait()
+		defer file.Close()
 
-	// analyse test results
-	for _, test := range tests {
-		if !test.result {
-			failedTests++
-			if verbose {
-				fmt.Println(test.kind, "test from:", test.from, "to:", test.to, "failed:", test.err.Error())
-			} else {
-				fmt.Println(test.kind, "test from:", test.from, "to:", test.to, "failed.")
-			}
-		} else if verbose {
-			fmt.Println(test.kind, "test from:", test.from, "to:", test.to, "succeded")
+		// Read the file contents into a byte slice
+		jsonData, err := io.ReadAll(file)
+		if err != nil {
+			log.Fatalf("Error reading file: %v", err)
 		}
-	}
 
-	if failedTests > 0 {
-		fmt.Printf("----------\n%d out of %d tests failed!\n", failedTests, len(tests))
+		var rerunTests []testCase
+		// Unmarshal the JSON data into a slice of Test structs
+		err = json.Unmarshal(jsonData, &rerunTests)
+		if err != nil {
+			log.Fatalf("Error unmarshalling data: %v", err)
+		}
 
-		// rerun failed tests
-		if rerun {
-			for _, test := range tests {
-				if !test.result {
-					fmt.Printf("Testing %s from %s to %s again: ", test.kind, test.from, test.to)
-					pod := v1.Pod{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      test.from,
-							Namespace: namespace,
-						},
-					}
-					if test.kind == "ping" {
-						_, _, err := testPing(kubeConfig, &pod, test.toIP)
-						if err != nil {
-							fmt.Println("test failed again")
-						} else {
-							fmt.Println("test successful now")
-							test.result = true
-						}
-					} else if test.kind == "curl" {
-						if test.toAZ == "Internet" {
-							_, _, err := testCurl(kubeConfig, &pod, test.toIP, "")
-							if err != nil {
-								fmt.Println("test failed again")
-							} else {
-								fmt.Println("test successful now")
-								test.result = true
-							}
-						} else {
-							_, _, err := testCurl(kubeConfig, &pod, test.toIP, "16909")
-							if err != nil {
-								fmt.Println("test failed again")
-							} else {
-								fmt.Println("test successful now")
-								test.result = true
-							}
-						}
-					}
-				}
+		// TODO: allow to rerun more tests
+		for id, testCase := range rerunTests {
+			if testCase.Id == uint16(rerun) {
+				tests = append(tests, rerunTests[id])
 			}
 		}
 	} else {
-		fmt.Printf("----------\nAll %d tests were successful.\n", len(tests))
+		tests = prerpareTestCases(pods)
+	}
+	if len(tests) == 0 {
+		fmt.Printf("Nothing to do; no test case matched the filter.\n")
+		os.Exit(0)
 	}
 
-	if deleteDS {
-		deleteDaemonSet(namespace, dsName, clientset)
+	// run tests
+	fmt.Printf("Pods running: %d. Starting tests with max %d retries per test from %s to %s.\n----------\n",
+		len(pods.Items), retries, fromAZ, toAZ)
+	tests = runTests(kubeConfig, tests)
+
+	// analyse test results
+	// TODO: clean up the output
+	for _, test := range tests {
+		if !test.Result {
+			failedTests++
+			if verbose {
+				fmt.Printf("%s ID - %d: %s from %s/%s to %s/%s: %s\n",
+					color.RedString("FAIL!"), test.Id, test.Kind, color.YellowString(test.FromAZ), test.From,
+					color.YellowString(test.ToAZ), test.To, test.Error)
+			} else {
+				fmt.Printf("%s ID - %d: %s from %s/%s to %s/%s\n",
+					color.RedString("FAIL!"), test.Id, test.Kind, color.YellowString(test.FromAZ), test.From,
+					color.YellowString(test.ToAZ), test.To)
+			}
+		} else if verbose {
+			fmt.Printf("%s ID - %d: %s from %s/%s to %s/%s\n",
+				color.GreenString("PASS!"), test.Id, test.Kind, color.YellowString(test.FromAZ), test.From,
+				color.YellowString(test.ToAZ), test.To)
+		}
+	}
+	result := fmt.Sprintf("%s | %s | %s\n",
+		color.YellowString(fmt.Sprintf("RUN: %d", len(tests))),
+		color.GreenString(fmt.Sprintf("PASSED: %d", len(tests)-int(failedTests))),
+		color.RedString(fmt.Sprintf("FAILED: %d", failedTests)))
+	if failedTests > 0 {
+		fmt.Printf("----------\n%s -- %s", color.RedString("FAIL!"), result)
+	} else {
+		fmt.Printf("----------\n%s -- %s", color.GreenString("SUCCESS!"), result)
+	}
+
+	// write the results to JSON file
+	jsonData, err := json.MarshalIndent(tests, "", "  ")
+	if err != nil {
+		log.Fatalf("Error marshalling data: %v", err)
+	}
+
+	err = os.WriteFile("test_results.json", jsonData, 0644)
+	if err != nil {
+		log.Fatalf("Error writing to file: %v", err)
 	}
 }
 
@@ -301,13 +222,8 @@ func testPing(kubeConfig *rest.Config, pod *v1.Pod, ip string) (string, string, 
 }
 
 // prepare curl command
-func testCurl(kubeConfig *rest.Config, pod *v1.Pod, ip string, port string) (string, string, error) {
-	var command string
-	if port == "" {
-		command = fmt.Sprintf("curl -sIG %s", ip)
-	} else {
-		command = fmt.Sprintf("curl -sIG %s:%s", ip, port)
-	}
+func testCurl(kubeConfig *rest.Config, pod *v1.Pod, ip string) (string, string, error) {
+	command := fmt.Sprintf("curl -sIG %s", ip)
 	return podExec(kubeConfig, pod, command)
 }
 
@@ -367,106 +283,6 @@ func getAZ(name string) string {
 	return ""
 }
 
-// deploy daemonset in specified namespace
-func deployDaemonSet(namespace string, client kubernetes.Interface) {
-	// skip if DS already exists
-	_, err := client.AppsV1().DaemonSets(namespace).Get(context.Background(), dsName, metav1.GetOptions{})
-	if err == nil {
-		return
-	}
-
-	// create namespace if doesn't exist
-	_, err = client.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
-	if err != nil {
-		if err.Error() == fmt.Sprintf("namespaces \"%s\" not found", namespace) {
-			fmt.Printf("Namespace %s not found, creating it.\n", namespace)
-			ns := v1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: namespace,
-				},
-			}
-			_, err := client.CoreV1().Namespaces().Create(context.Background(), &ns, metav1.CreateOptions{})
-			if err != nil {
-				fmt.Printf("Failed to create namespace %s: %s\n", namespace, err)
-				os.Exit(1)
-			}
-			fmt.Printf("Namespace %s created.\n", namespace)
-		}
-	}
-
-	ds := appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: dsName,
-		},
-		Spec: appsv1.DaemonSetSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"name": dsName,
-				},
-			},
-			Template: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"name": dsName,
-					},
-				},
-				Spec: v1.PodSpec{
-					Tolerations: []v1.Toleration{
-						{
-							Operator: "Exists",
-						},
-					},
-					Containers: []v1.Container{
-						{
-							Image:                  "rancherlabs/swiss-army-knife",
-							ImagePullPolicy:        "Always",
-							Name:                   dsName,
-							Command:                []string{"sh", "-c", "tail -f /dev/null"},
-							TerminationMessagePath: "/dev/termination-log",
-						},
-					},
-				},
-			},
-		},
-	}
-	fmt.Printf("Creating daemonset \"%s\"\n", ds.Name)
-	_, err = client.AppsV1().DaemonSets(namespace).Create(context.Background(), &ds, metav1.CreateOptions{})
-	if err != nil {
-		fmt.Printf("Failed to create daemonset \"%s\": %s\n", ds.Name, err.Error())
-		os.Exit(1)
-	}
-	fmt.Printf("Successfully created daemonset \"%s\"\n", ds.Name)
-}
-
-// delete Daemonset in specified namespace
-func deleteDaemonSet(namespace string, daemonset string, client kubernetes.Interface) {
-	_, err := client.AppsV1().DaemonSets(namespace).Get(context.Background(), daemonset, metav1.GetOptions{})
-	if err != nil {
-		fmt.Printf("Daemonset \"%s\" not found: %s\n", daemonset, err.Error())
-	} else {
-		err = client.AppsV1().DaemonSets(namespace).Delete(context.Background(), daemonset, metav1.DeleteOptions{})
-		if err != nil {
-			fmt.Printf("Could not delete daemonset \"%s\": %s\n", daemonset, err.Error())
-			os.Exit(1)
-		} else {
-			fmt.Printf("Successfully deleted daemonset \"%s\"\n", daemonset)
-		}
-	}
-
-	_, err = client.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
-	if err != nil {
-		fmt.Printf("Namespace \"%s\" not found: %s\n", namespace, err.Error())
-	} else {
-		err = client.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
-		if err != nil {
-			fmt.Printf("Could not delete namespace \"%s\": %s\n", namespace, err.Error())
-			os.Exit(1)
-		} else {
-			fmt.Printf("Successfully deleted namespace \"%s\"\n", namespace)
-		}
-	}
-}
-
 // get HTTP code from output of curl
 func getHttpCode(input string) int {
 	lines := strings.Split(input, "\n")
@@ -479,4 +295,105 @@ func getHttpCode(input string) int {
 		return 0
 	}
 	return httpCode
+}
+
+func prerpareTestCases(pods *v1.PodList) []testCase {
+	tests := make([]testCase, 0)
+	testIps := map[string]testObject{}
+	for _, pod := range pods.Items {
+		testIps[pod.Status.PodIP] = testObject{AZ: getAZ(pod.Spec.NodeName), name: pod.Name}
+		testIps[pod.Status.HostIP] = testObject{AZ: getAZ(pod.Spec.NodeName), name: pod.Spec.NodeName}
+		testIps["1.1.1.1"] = testObject{AZ: "Internet", name: "cloudflare"}
+	}
+	id := uint16(1)
+	for _, pod := range pods.Items {
+		if getAZ(pod.Spec.NodeName) == fromAZ || fromAZ == "all" {
+			if ping {
+				for ip, dst := range testIps {
+					if dst.AZ == toAZ || toAZ == "all" {
+						currentTest := testCase{
+							Id:     id,
+							From:   pod.Name,
+							FromIP: pod.Status.PodIP,
+							FromAZ: getAZ(pod.Spec.NodeName),
+							To:     dst.name,
+							ToAZ:   dst.AZ,
+							ToIP:   ip,
+							Kind:   "ping",
+						}
+						id++
+						tests = append(tests, currentTest)
+					}
+				}
+			}
+			if curl {
+				for ip, dst := range testIps {
+					if dst.AZ == toAZ || toAZ == "all" {
+						currentTest := testCase{
+							Id:     id,
+							From:   pod.Name,
+							FromIP: pod.Status.PodIP,
+							FromAZ: getAZ(pod.Spec.NodeName),
+							To:     dst.name,
+							ToIP:   ip,
+							Kind:   "curl",
+						}
+						if strings.Contains(dst.name, "shoot") {
+							currentTest.ToAZ = dst.AZ
+							currentTest.ToIP = fmt.Sprintf("%s:%d", currentTest.ToIP, port)
+						} else if dst.AZ == "Internet" {
+							currentTest.ToAZ = "Internet"
+						} else {
+							continue
+						}
+						id++
+						tests = append(tests, currentTest)
+					}
+				}
+			}
+		}
+	}
+	return tests
+}
+
+func runTests(kubeConfig *rest.Config, tests []testCase) []testCase {
+	wg := new(sync.WaitGroup)
+	for i, test := range tests {
+		if verbose {
+			fmt.Printf("Test started: %s from %s/%s to %s/%s\n",
+				test.Kind, color.YellowString(test.FromAZ), test.From, color.YellowString(test.ToAZ), test.To)
+		}
+		wg.Add(1)
+		go func(test testCase) {
+			defer wg.Done()
+			pod := v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      test.From,
+					Namespace: namespace,
+				},
+			}
+			if test.Kind == "ping" {
+				_, _, err := testPing(kubeConfig, &pod, test.ToIP)
+				if err != nil {
+					tests[i].Result = false
+					tests[i].Error = err.Error()
+				} else {
+					tests[i].Result = true
+				}
+			}
+			if test.Kind == "curl" {
+				stdout, _, err := testCurl(kubeConfig, &pod, test.ToIP)
+				if err == nil && getHttpCode(stdout) > 199 && getHttpCode(stdout) < 400 {
+					tests[i].Result = true
+				} else {
+					tests[i].Result = false
+					tests[i].Error = err.Error()
+				}
+			}
+
+		}(test)
+	}
+	wg.Wait()
+
+	return tests
 }
