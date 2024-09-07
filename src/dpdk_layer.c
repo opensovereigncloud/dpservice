@@ -132,6 +132,8 @@ static int main_core_loop(void)
 	int ret = DP_OK;
 
 	while (!force_quit) {
+		usleep(100000);
+		continue;
 		cur_cycles = rte_get_timer_cycles();
 		elapsed_cycles = cur_cycles - prev_cycles;
 		if (elapsed_cycles < period_cycles) {
