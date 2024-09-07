@@ -394,11 +394,11 @@ void dp_start_all(void)
 
 	DP_FOREACH_PORT(&_dp_ports, port) {
 		if (!port->is_pf) {
-			if (counter < 10) {
+			if (counter < 24) {
 				counter++;
 				continue;
 			}
-			if (counter >= 30)
+			if (counter >= 40)
 				break;
 			DPS_LOG_INFO("Starting", DP_LOG_PORT(port), DP_LOG_VALUE(++counter));
 			ret = dp_start_port(port);
