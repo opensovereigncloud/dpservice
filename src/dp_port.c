@@ -394,7 +394,7 @@ void dp_start_all(void)
 
 	DP_FOREACH_PORT(&_dp_ports, port) {
 		if (!port->is_pf) {
-			if (counter < 13) {
+			if (counter < 10) {
 				counter++;
 				continue;
 			}
