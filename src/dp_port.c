@@ -43,7 +43,7 @@ static const struct rte_eth_conf port_conf_default = {
 	.rx_adv_conf = {
 		.rss_conf = {
 			.rss_key = NULL,
-			.rss_hf = RTE_ETH_RSS_IP,
+			.rss_hf = 0,//RTE_ETH_RSS_IP,
 		},
 	},
 	.intr_conf = {
