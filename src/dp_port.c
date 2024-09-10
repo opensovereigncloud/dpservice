@@ -529,6 +529,10 @@ static int dp_stop_eth_port(struct dp_port *port)
 	if (DP_FAILED(ret))
 		DPS_LOG_ERR("Cannot stop ethernet port", DP_LOG_PORTID(port->port_id), DP_LOG_RET(ret));
 
+	ret = rte_eth_dev_close(port->port_id);
+	if (DP_FAILED(ret))
+		DPS_LOG_ERR("Cannot close ethernet port", DP_LOG_PORTID(port->port_id), DP_LOG_RET(ret));
+
 	return ret;
 }
 
