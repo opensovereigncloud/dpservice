@@ -159,6 +159,7 @@ static __rte_always_inline
 struct dp_port *dp_get_port_by_id(uint16_t port_id)
 {
 #ifdef ENABLE_PF1_PROXY
+	// TODO needs another look
 	if (unlikely(dp_conf_is_pf1_proxy_enabled() && port_id == _dp_pf_proxy_tap_port.port_id))
 		return &_dp_pf_proxy_tap_port;
 #endif

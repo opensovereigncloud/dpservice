@@ -468,7 +468,11 @@ static int dp_port_init_vfs(const char *vf_pattern, int num_of_vfs)
 	if (!vf_count) {
 		DPS_LOG_ERR("No such VF", DP_LOG_NAME(vf_pattern));
 		return DP_ERROR;
-	} else if (vf_count < num_of_vfs) {
+	} else if (vf_count < num_of_vfs
+#ifdef ENABLE_PF1_PROXY
+		- (dp_conf_is_pf1_proxy_enabled() ? 1 : 0)
+#endif
+	) {
 		DPS_LOG_ERR("Not all VFs initialized", DP_LOG_VALUE(vf_count), DP_LOG_MAX(num_of_vfs));
 		return DP_ERROR;
 	}
@@ -491,7 +495,7 @@ int dp_ports_init(void)
 	if (DP_FAILED(dp_port_init_pf(dp_conf_get_pf0_name()))
 		|| DP_FAILED(dp_port_init_pf(dp_conf_get_pf1_name()))
 #ifdef ENABLE_PF1_PROXY
-		|| DP_FAILED(dp_port_init_tap_proxy(dp_get_eal_pf1_proxy_dev_name()))
+		|| DP_FAILED(dp_port_init_tap_proxy(dp_conf_get_pf1_proxy()))
 #endif
 		|| DP_FAILED(dp_port_init_vfs(dp_conf_get_vf_pattern(), num_of_vfs)))
 		return DP_ERROR;
