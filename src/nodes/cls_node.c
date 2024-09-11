@@ -24,8 +24,10 @@
 #endif
 
 #ifdef ENABLE_PF1_PROXY
+#define PF1_NEXT(NEXT) NEXT(CLS_NEXT_PF1, "pf1")
 #define PF1_PROXY_NEXT(NEXT) NEXT(CLS_NEXT_PF1_PROXY, "pf1_proxy")
 #else
+#define PF1_NEXT(NEXT)
 #define PF1_PROXY_NEXT(NEXT)
 #endif
 
@@ -34,6 +36,7 @@
 	NEXT(CLS_NEXT_IPV6_ND, "ipv6_nd") \
 	NEXT(CLS_NEXT_CONNTRACK, "conntrack") \
 	NEXT(CLS_NEXT_IPIP_DECAP, "ipip_decap") \
+	PF1_NEXT(NEXT) \
 	PF1_PROXY_NEXT(NEXT) \
 	VIRTSVC_NEXT(NEXT)
 
@@ -127,17 +130,17 @@ static __rte_always_inline struct dp_virtsvc *get_incoming_virtsvc(const struct 
 #endif
 
 #ifdef ENABLE_PF1_PROXY
-static __rte_always_inline bool pf1_tap_proxy_forward(struct rte_mbuf *m)
+static __rte_always_inline rte_edge_t pf1_tap_proxy_forward(struct rte_mbuf *m)
 {
 	if (!dp_conf_is_pf1_proxy_enabled())
-		return false;
+		return CLS_NEXT_DROP;
 
 	const struct rte_ether_hdr *ether_hdr;
 	const struct rte_ipv6_hdr *ipv6_hdr;
 	uint32_t l3_type;
 
 	if (m->port == dp_get_pf_proxy_tap_port()->port_id)
-		return true;
+		return CLS_NEXT_PF1;
 
 	// this duplicates code from the main classifier, to pass underlay/virtsvc packets
 	// TODO needs reworking if proxy is kept as a long-term solution
@@ -151,19 +154,19 @@ static __rte_always_inline bool pf1_tap_proxy_forward(struct rte_mbuf *m)
 		if (RTE_ETH_IS_IPV6_HDR(l3_type)) {
 			ipv6_hdr = (const struct rte_ipv6_hdr *)(ether_hdr + 1);
 			if (ipv6_hdr->proto == IPPROTO_IPIP || ipv6_hdr->proto == IPPROTO_IPV6)
-				return false;
+				return CLS_NEXT_DROP;
 #ifdef ENABLE_VIRTSVC
 			if (virtsvc_present) {
 				if (get_incoming_virtsvc(ipv6_hdr))
-					return false;
+					return CLS_NEXT_DROP;
 			}
 #endif
 		}
 
-		return true;
+		return CLS_NEXT_PF1_PROXY;
 	}
 
-	return false;
+	return CLS_NEXT_DROP;
 }
 #endif
 
@@ -180,8 +183,10 @@ static __rte_always_inline rte_edge_t get_next_index(__rte_unused struct rte_nod
 
 #ifdef ENABLE_PF1_PROXY
 	// TODO this is not the best way as this function duplicates work, needs reworking if pf1-proxy is kept in the future
-	if (unlikely(pf1_tap_proxy_forward(m)))
-		return CLS_NEXT_PF1_PROXY;
+	rte_edge_t next = pf1_tap_proxy_forward(m);
+
+	if (unlikely(next != CLS_NEXT_DROP))
+		return next;
 #endif
 
 	if (unlikely((m->packet_type & RTE_PTYPE_L2_MASK) != RTE_PTYPE_L2_ETHER))
