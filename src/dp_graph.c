@@ -130,7 +130,7 @@ static int dp_graph_init_proxy_tap(void)
 	uint16_t port_id = port->port_id;
 
 	if (DP_FAILED(rx_node_create(port_id, 0))
-			|| DP_FAILED(tx_node_create(port_id)))
+			|| DP_FAILED(tx_node_create(port_id)))  // TODO wait, this is never used!
 		return DP_ERROR;
 
 	return DP_OK;
