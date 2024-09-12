@@ -40,12 +40,6 @@ static const struct rte_eth_conf port_conf_default = {
 			RTE_ETH_TX_OFFLOAD_TCP_CKSUM |
 			RTE_ETH_TX_OFFLOAD_IP_TNL_TSO
 	},
-	.rx_adv_conf = {
-		.rss_conf = {
-			.rss_key = NULL,
-			.rss_hf = RTE_ETH_RSS_IP,
-		},
-	},
 	.intr_conf = {
 		.lsc = 1, /**< lsc interrupt feature enabled */
 	},
@@ -185,6 +179,7 @@ static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *de
 
 static int dp_port_flow_isolate(uint16_t port_id)
 {
+	DPS_LOG_INFO("NOT restricted to the defined flow rules", DP_LOG_PORTID(port_id));
 	struct rte_flow_error error;
 	int ret;
 
@@ -474,7 +469,7 @@ static int dp_port_init_vfs(const char *vf_pattern, int num_of_vfs)
 #endif
 	) {
 		DPS_LOG_ERR("Not all VFs initialized", DP_LOG_VALUE(vf_count), DP_LOG_MAX(num_of_vfs));
-		return DP_ERROR;
+		//return DP_ERROR;
 	}
 	return DP_OK;
 }
@@ -612,10 +607,21 @@ static int dp_port_install_async_isolated_mode(struct dp_port *port)
 
 static int dp_port_create_default_pf_async_templates(struct dp_port *port)
 {
-	DPS_LOG_INFO("Installing PF async templates", DP_LOG_PORTID(port->port_id));
-	if (DP_FAILED(dp_create_pf_async_isolation_templates(port))) {
-		DPS_LOG_ERR("Failed to create pf async isolation templates", DP_LOG_PORTID(port->port_id));
-		return DP_ERROR;
+	// DPS_LOG_INFO("Installing PF async templates", DP_LOG_PORTID(port->port_id));
+	// if (DP_FAILED(dp_create_pf_async_isolation_templates(port))) {
+	// 	DPS_LOG_ERR("Failed to create pf async isolation templates", DP_LOG_PORTID(port->port_id));
+	// 	return DP_ERROR;
+	// }
+
+	if (port->port_id == 0) {
+		// if (DP_FAILED(dp_create_pf_async_isolation_templates_to_group(port))) {
+		// 	DPS_LOG_ERR("Failed to create pf async isolation templates TEST", DP_LOG_PORTID(port->port_id));
+		// 	return DP_ERROR;
+		// }
+		if (DP_FAILED(dp_create_pf_async_isolation_templates_proxy(port))) {
+			DPS_LOG_ERR("Failed to create pf async isolation templates TEST", DP_LOG_PORTID(port->port_id));
+			return DP_ERROR;
+		}
 	}
 #ifdef ENABLE_VIRTSVC
 	if (DP_FAILED(dp_create_virtsvc_async_isolation_templates(port, IPPROTO_TCP))

@@ -91,7 +91,7 @@ COPY include/ include/
 COPY .git/ .git/
 
 # Compile dpservice itself
-RUN meson setup build -Dbuild_dpservice_cli=true $DPSERVICE_FEATURES && ninja -C build
+RUN meson setup build -Dbuildtype=release -Dbuild_dpservice_cli=true $DPSERVICE_FEATURES && ninja -C build
 
 # Deployed pod image itself
 FROM debian:12-slim AS production

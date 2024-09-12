@@ -23,18 +23,42 @@ enum dp_isolation_actions_type {
 	DP_ISOLATION_ACTIONS_COUNT,
 };
 
+
 static const struct rte_flow_pattern_template_attr default_pattern_template_attr = {
 	.ingress = 1
 };
-
 static const struct rte_flow_actions_template_attr default_actions_template_attr = {
 	.ingress = 1
+};
+
+static const struct rte_flow_pattern_template_attr default_pattern_template_attr_test = {
+	.relaxed_matching = 0,  // No relaxed matching
+	.transfer = 1,          // Enable transfer traffic
+	.ingress = 0,           // Not for ingress
+	.egress = 0,            // Not for egress
+};
+
+static const struct rte_flow_actions_template_attr default_actions_template_attr_test = {
+	.transfer = 1,          // Enable transfer traffic
+	.ingress = 0,           // Not for ingress
+	.egress = 0,            // Not for egress
 };
 
 static const struct rte_flow_template_table_attr pf_default_template_table_attr = {
 	.flow_attr = {
 		.group = 0,
 		.ingress = 1,
+	},
+	.nb_flows = DP_ISOLATION_DEFAULT_TABLE_MAX_RULES,
+};
+
+static const struct rte_flow_template_table_attr pf_default_template_table_attr_test = {
+	.flow_attr = {
+		.group = 0,
+		.priority = 0,
+		.ingress = 0,
+		.egress = 0,
+		.transfer = 1,
 	},
 	.nb_flows = DP_ISOLATION_DEFAULT_TABLE_MAX_RULES,
 };
@@ -72,6 +96,117 @@ int dp_create_pf_async_isolation_templates(struct dp_port *port)
 		= dp_create_async_actions_template(port->port_id, &default_actions_template_attr, actions, actions);
 
 	tmpl->table_attr = &pf_default_template_table_attr;
+
+	return dp_init_async_template(port->port_id, tmpl);
+}
+
+// int dp_create_pf_async_isolation_templates_to_group(struct dp_port *port)
+// {
+// 	struct dp_port_async_template *tmpl;
+//
+// 	tmpl = dp_alloc_async_template(DP_ISOLATION_PATTERN_COUNT, DP_ISOLATION_ACTIONS_COUNT);
+// 	if (!tmpl)
+// 		return DP_ERROR;
+//
+// 	port->default_async_rules.default_templates[DP_PORT_ASYNC_TEMPLATE_TO_GROUP] = tmpl;
+//
+// 	// no need to check returned values here, dp_create_async_template() takes care of everything
+//
+// 	static const struct rte_flow_item pattern[] = {
+// 		{	.type = RTE_FLOW_ITEM_TYPE_ETH,
+// 			.mask = &dp_flow_item_eth_mask,
+// 		},
+// 		{	.type = RTE_FLOW_ITEM_TYPE_END,
+// 		},
+// 	};
+// 	tmpl->pattern_templates[DP_ISOLATION_PATTERN_IPV6_PROTO]
+// 		= dp_create_async_pattern_template(port->port_id, &default_pattern_template_attr_test, pattern);
+//
+// 	static const struct rte_flow_action actions[] = {
+// 		{	.type = RTE_FLOW_ACTION_TYPE_JUMP, },
+// 		{	.type = RTE_FLOW_ACTION_TYPE_END, },
+// 	};
+// 	tmpl->actions_templates[DP_ISOLATION_ACTIONS_QUEUE]
+// 		= dp_create_async_actions_template(port->port_id, &default_actions_template_attr_test, actions, actions);
+//
+// 	tmpl->table_attr = &pf_default_template_table_attr_test;
+//
+// 	return dp_init_async_template(port->port_id, tmpl);
+// }
+
+// int dp_create_pf_async_isolation_templates_proxy(struct dp_port *port)
+// {
+// 	struct dp_port_async_template *tmpl;
+//
+// 	tmpl = dp_alloc_async_template(DP_ISOLATION_PATTERN_COUNT, DP_ISOLATION_ACTIONS_COUNT);
+// 	if (!tmpl)
+// 		return DP_ERROR;
+//
+// 	port->default_async_rules.default_templates[DP_PORT_ASYNC_TEMPLATE_PF_PROXY] = tmpl;
+//
+// 	// no need to check returned values here, dp_create_async_template() takes care of everything
+//
+// 	static const struct rte_flow_item pattern[] = {
+// 		{
+// 			.type = RTE_FLOW_ITEM_TYPE_REPRESENTED_PORT,
+// 			.spec = &dp_flow_item_rep_port_1,
+// 			.mask = &rte_flow_item_ethdev_mask,
+// 		},
+//       {   .type = RTE_FLOW_ITEM_TYPE_ETH,
+// 			.mask = &dp_flow_item_eth_mask,        // Ethernet mask
+// 		},
+// 		{	.type = RTE_FLOW_ITEM_TYPE_END,
+// 		},
+// 	};
+// 	tmpl->pattern_templates[DP_ISOLATION_PATTERN_IPV6_PROTO]
+// 		= dp_create_async_pattern_template(port->port_id, &default_pattern_template_attr_test, pattern);
+//
+// 	static const struct rte_flow_action actions[] = {
+// 		{	.type = RTE_FLOW_ACTION_TYPE_REPRESENTED_PORT },
+// 		{	.type = RTE_FLOW_ACTION_TYPE_END, },
+// 	};
+// 	tmpl->actions_templates[DP_ISOLATION_PATTERN_IPV6_PROTO]
+// 		= dp_create_async_actions_template(port->port_id, &default_actions_template_attr_test, actions, actions);
+//
+// 	tmpl->table_attr = &pf_default_template_table_attr_test;
+//
+// 	return dp_init_async_template(port->port_id, tmpl);
+// }
+
+int dp_create_pf_async_isolation_templates_proxy(struct dp_port *port)
+{
+	struct dp_port_async_template *tmpl;
+
+	tmpl = dp_alloc_async_template(DP_ISOLATION_PATTERN_COUNT, DP_ISOLATION_ACTIONS_COUNT);
+	if (!tmpl)
+		return DP_ERROR;
+
+	port->default_async_rules.default_templates[DP_PORT_ASYNC_TEMPLATE_PF_PROXY] = tmpl;
+
+	// no need to check returned values here, dp_create_async_template() takes care of everything
+
+	static const struct rte_flow_item pattern[] = {
+		{
+			.type = RTE_FLOW_ITEM_TYPE_REPRESENTED_PORT,
+			.mask = &dp_flow_item_ethdev_mask,
+		},
+	  {   .type = RTE_FLOW_ITEM_TYPE_ETH,
+			.mask = &dp_flow_item_eth_mask,        // Ethernet mask
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_END,
+		},
+	};
+	tmpl->pattern_templates[DP_ISOLATION_PATTERN_IPV6_PROTO]
+		= dp_create_async_pattern_template(port->port_id, &default_pattern_template_attr_test, pattern);
+
+	static const struct rte_flow_action actions[] = {
+		{	.type = RTE_FLOW_ACTION_TYPE_REPRESENTED_PORT },
+		{	.type = RTE_FLOW_ACTION_TYPE_END, },
+	};
+	tmpl->actions_templates[DP_ISOLATION_PATTERN_IPV6_PROTO]
+		= dp_create_async_actions_template(port->port_id, &default_actions_template_attr_test, actions, actions);
+
+	tmpl->table_attr = &pf_default_template_table_attr_test;
 
 	return dp_init_async_template(port->port_id, tmpl);
 }
@@ -153,6 +288,62 @@ static struct rte_flow *dp_create_pf_async_isolation_rule(uint16_t port_id, uint
 								actions, DP_ISOLATION_ACTIONS_QUEUE);
 }
 
+// static struct rte_flow *dp_create_pf_async_isolation_rule_group(uint16_t port_id, struct rte_flow_template_table *template_table)
+// {
+// 	struct rte_flow_item_eth eth_spec = {
+// 	};
+// 	struct rte_flow_item pattern[] = {
+// 		{	.type = RTE_FLOW_ITEM_TYPE_ETH,
+// 			.spec = &eth_spec,
+// 		},
+// 		{	.type = RTE_FLOW_ITEM_TYPE_END },
+// 	};
+//
+// 	static const struct rte_flow_action_jump jump_action = {
+// 		.group = 1,
+// 	};
+// 	static const struct rte_flow_action actions[] = {
+// 		{	.type = RTE_FLOW_ACTION_TYPE_JUMP,
+// 			.conf = &jump_action,
+// 		},
+// {	.type = RTE_FLOW_ACTION_TYPE_END },
+// 	};
+//
+// 	return dp_create_async_rule(port_id, template_table,
+// 								pattern, DP_ISOLATION_PATTERN_IPV6_PROTO,
+// 								actions, DP_ISOLATION_ACTIONS_QUEUE);
+// }
+
+static struct rte_flow *dp_create_pf_async_isolation_rule_proxy(uint16_t port_id, struct rte_flow_template_table *template_table)
+{
+	struct rte_flow_item_eth eth_spec = {
+	};
+	struct rte_flow_item pattern[] = {
+		{
+			.type = RTE_FLOW_ITEM_TYPE_REPRESENTED_PORT,
+			.spec = &dp_flow_item_rep_port_1,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_ETH,
+			.spec = &eth_spec,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_END },
+	};
+
+	static const struct rte_flow_action_port_id port_action = {
+		.id = 3,
+	};
+	static const struct rte_flow_action actions[] = {
+		{	.type = RTE_FLOW_ACTION_TYPE_REPRESENTED_PORT,
+			.conf = &port_action,
+		},
+		{	.type = RTE_FLOW_ACTION_TYPE_END },
+	};
+
+	return dp_create_async_rule(port_id, template_table,
+								pattern, DP_ISOLATION_PATTERN_IPV6_PROTO,
+								actions, DP_ISOLATION_ACTIONS_QUEUE);
+}
+
 #ifdef ENABLE_VIRTSVC
 struct rte_flow *dp_create_virtsvc_async_isolation_rule(uint16_t port_id, uint8_t proto_id,
 														const union dp_ipv6 *svc_ipv6, rte_be16_t svc_port,
@@ -200,13 +391,13 @@ struct rte_flow *dp_create_virtsvc_async_isolation_rule(uint16_t port_id, uint8_
 }
 #endif
 
-int dp_create_pf_async_isolation_rules(struct dp_port *port)
-{
+int dp_create_pf_async_isolation_rules(struct dp_port *port) {
 	struct rte_flow *flow;
 	uint16_t rule_count = 0;
-	size_t rules_required = 2;
+	size_t rules_required = 0;
 	struct dp_port_async_template **templates = port->default_async_rules.default_templates;
 
+	goto flows;
 	flow = dp_create_pf_async_isolation_rule(port->port_id, IPPROTO_IPIP,
 											 templates[DP_PORT_ASYNC_TEMPLATE_PF_ISOLATION]->template_table);
 	if (!flow) {
@@ -225,6 +416,30 @@ int dp_create_pf_async_isolation_rules(struct dp_port *port)
 	} else {
 		port->default_async_rules.default_flows[DP_PORT_ASYNC_FLOW_ISOLATE_IPV6] = flow;
 		rule_count++;
+	}
+
+flows:
+	if (port->port_id == 0) {
+		rules_required = 2;
+		// flow = dp_create_pf_async_isolation_rule_group(port->port_id,
+		// 									 templates[DP_PORT_ASYNC_TEMPLATE_TO_GROUP]->template_table);
+		// if (!flow) {
+		// 	DPS_LOG_ERR("Failed to install PF async TEST1 isolation rule", DP_LOG_PORTID(port->port_id));
+		// 	return DP_ERROR;
+		// } else {
+		// 	port->default_async_rules.default_flows[DP_PORT_ASYNC_TEMPLATE_TO_GROUP] = flow;
+		// 	rule_count++;
+		// }
+
+		flow = dp_create_pf_async_isolation_rule_proxy(port->port_id,
+											 templates[DP_PORT_ASYNC_TEMPLATE_PF_PROXY]->template_table);
+		if (!flow) {
+			DPS_LOG_ERR("Failed to install PF async TEST2 isolation rule", DP_LOG_PORTID(port->port_id));
+			return DP_ERROR;
+		} else {
+			port->default_async_rules.default_flows[DP_PORT_ASYNC_TEMPLATE_PF_PROXY] = flow;
+			rule_count++;
+		}
 	}
 
 #ifdef ENABLE_VIRTSVC

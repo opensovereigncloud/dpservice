@@ -38,6 +38,31 @@ union dp_flow_item_l4 {
 	struct rte_flow_item_icmp6 icmp6;
 };
 
+static const struct rte_flow_item_ethdev dp_flow_item_rep_port_1 = {
+	.port_id = 1,
+};
+
+static const struct rte_flow_item_ethdev dp_flow_item_ethdev_mask = {
+	.port_id = 0x0001,
+};
+
+static const struct rte_flow_item_ethdev dp_flow_item_rep_port_126 = {
+	.port_id = 125,
+};
+
+static const struct rte_flow_item_ipv6 dp_flow_item_ipv6_ipip = {
+	.hdr = {
+		.proto = 4,
+	},
+};
+
+static const struct rte_flow_item_ipv4 dp_flow_item_ipv4_mask = {
+	.hdr = {
+		.version_ihl = 0xF0,  // Mask only the version (IPv4 version is 4)
+		// Optionally, add masks for other fields if you want to match them
+	},
+};
+
 static const struct rte_flow_item_eth dp_flow_item_eth_mask = {
 	.hdr.ether_type = 0xffff,
 };

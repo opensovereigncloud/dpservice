@@ -29,8 +29,9 @@ static const struct rte_flow_op_attr postponed_op_attr = {
 int dp_configure_async_flows(uint16_t port_id)
 {
 	static const struct rte_flow_port_attr port_attr = {
-		.nb_aging_objects = DP_ASYNC_FLOW_MAX_AGE_NUM,
+		//.nb_aging_objects = DP_ASYNC_FLOW_MAX_AGE_NUM,
 		.nb_counters = DP_ASYNC_FLOW_MAX_COUNTER_NUM,
+		.nb_meters = 0,
 	};
 	const struct rte_flow_queue_attr *attr_list[DP_NR_STD_RX_QUEUES];
 	struct rte_flow_error error;

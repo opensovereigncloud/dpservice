@@ -16,3 +16,7 @@ scapy-script/*
 code_check/_checkpatch.pl
 .out
 test/benchmark_test/access_details.json
+/dpdk-23.11/
+/include_dirs.txt
+/includes.sh
+/net-dpservice.iml

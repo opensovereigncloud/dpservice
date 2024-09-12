@@ -15,6 +15,12 @@ extern "C" {
 
 int dp_create_pf_async_isolation_templates(struct dp_port *port);
 
+int dp_create_pf_async_isolation_templates_to_group(struct dp_port *port);
+
+int dp_create_pf_async_isolation_templates_proxy(struct dp_port *port);
+
+
+
 int dp_create_pf_async_isolation_rules(struct dp_port *port);
 
 #ifdef ENABLE_VIRTSVC

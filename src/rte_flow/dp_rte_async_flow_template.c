@@ -57,6 +57,17 @@ int dp_init_async_template(uint16_t port_id, struct dp_port_async_template *tmpl
 		}
 	}
 
+	// Check and log the details of the templates before creating the table
+	printf("Creating flow template table on port: %u\n", port_id);
+	printf("Pattern count: %u, Action count: %u\n", tmpl->pattern_count, tmpl->actions_count);
+	printf("Flow attributes - ingress: %u, egress: %u, transfer: %u\n",
+	   tmpl->table_attr->flow_attr.ingress,
+	   tmpl->table_attr->flow_attr.egress,
+	   tmpl->table_attr->flow_attr.transfer);
+
+	printf("Number of flows: %u\n", tmpl->table_attr->nb_flows);
+
+	memset(&error, 0x22, sizeof(error));
 	tmpl->template_table = rte_flow_template_table_create(port_id, tmpl->table_attr,
 															  tmpl->pattern_templates, tmpl->pattern_count,
 															  tmpl->actions_templates, tmpl->actions_count,
@@ -64,6 +75,7 @@ int dp_init_async_template(uint16_t port_id, struct dp_port_async_template *tmpl
 	if (!tmpl->template_table) {
 		DPS_LOG_ERR("Failed to create async flow template table",
 					DP_LOG_RET(rte_errno), DP_LOG_PORTID(port_id), DP_LOG_FLOW_ERROR(error.message));
+		printf("Flow template table creation failed: %s (cause: %p)\n", error.message, error.cause);
 		return DP_ERROR;
 	}
 
