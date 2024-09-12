@@ -42,8 +42,12 @@ static const struct rte_flow_item_ethdev dp_flow_item_rep_port_1 = {
 	.port_id = 1,
 };
 
+static const struct rte_flow_item_ethdev dp_flow_item_rep_port_127 = {
+	.port_id = 127,
+};
+
 static const struct rte_flow_item_ethdev dp_flow_item_ethdev_mask = {
-	.port_id = 0x0001,
+	.port_id = 1,
 };
 
 static const struct rte_flow_item_ethdev dp_flow_item_rep_port_126 = {
@@ -61,6 +65,10 @@ static const struct rte_flow_item_ipv4 dp_flow_item_ipv4_mask = {
 		.version_ihl = 0xF0,  // Mask only the version (IPv4 version is 4)
 		// Optionally, add masks for other fields if you want to match them
 	},
+};
+
+static const struct rte_flow_item_eth dp_flow_item_eth_mask_test = {
+	.hdr.ether_type = 0x0000,
 };
 
 static const struct rte_flow_item_eth dp_flow_item_eth_mask = {

@@ -179,7 +179,6 @@ static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *de
 
 static int dp_port_flow_isolate(uint16_t port_id)
 {
-	DPS_LOG_INFO("NOT restricted to the defined flow rules", DP_LOG_PORTID(port_id));
 	struct rte_flow_error error;
 	int ret;
 
