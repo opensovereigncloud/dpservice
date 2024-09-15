@@ -27,6 +27,9 @@ static uint16_t pf1_node_process(struct rte_graph *graph,
 
 	uint16_t sent_count = rte_eth_tx_burst(pf1_port_id, 0, (struct rte_mbuf **)objs, nb_objs);
 
+	// TODO clean this up
+	dp_graphtrace_tx_burst(node, objs, sent_count, pf1_port_id);
+
 	if (sent_count != nb_objs) {
 		DPNODE_LOG_WARNING(node, "Unable to send packets through PF1 node");  // TODO max/value log
 		dp_graphtrace_next_burst(node, objs+sent_count, nb_objs-sent_count, PF1_NEXT_DROP);

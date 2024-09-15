@@ -11,7 +11,7 @@ static uint16_t pf1_tap_port_id;
 
 static int pf1_proxy_node_init(__rte_unused const struct rte_graph *graph, __rte_unused struct rte_node *node)
 {
-	pf1_tap_port_id = dp_get_pf_proxy_tap_port()->port_id;
+	pf1_tap_port_id = dp_get_pf1_proxy()->port_id;
 	return DP_OK;
 }
 
@@ -26,6 +26,8 @@ static uint16_t pf1_proxy_node_process(struct rte_graph *graph,
 	// this code should closely resemble the one inside those functions
 
 	uint16_t sent_count = rte_eth_tx_burst(pf1_tap_port_id, 0, (struct rte_mbuf **)objs, nb_objs);
+	// TODO clean this up
+	dp_graphtrace_tx_burst(node, objs, sent_count, pf1_tap_port_id);
 
 	if (sent_count != nb_objs) {
 		DPNODE_LOG_WARNING(node, "Unable to send packets through PF1 proxy node");  // TODO max/value log

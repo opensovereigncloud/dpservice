@@ -38,6 +38,10 @@ union dp_flow_item_l4 {
 	struct rte_flow_item_icmp6 icmp6;
 };
 
+static const struct rte_flow_item_ethdev dp_flow_item_ethdev_mask = {
+	.port_id = 0xffff,
+};
+
 static const struct rte_flow_item_eth dp_flow_item_eth_mask = {
 	.hdr.ether_type = 0xffff,
 };
