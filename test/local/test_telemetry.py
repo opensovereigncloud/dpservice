@@ -139,13 +139,12 @@ def test_telemetry_exporter(request, prepare_ifaces, start_exporter):
 		else:
 			assert metric.startswith("#"), \
 				f"Unknown exported metric '{metric.split('{')[0]}' found"
-	# meson options (e.g. enable_pf1_proxy) are hard to do in these scripts, so just check manually
+	# meson options (e.g. enable_virtual_services) are hard to do in these scripts, so just check manually
 	graph_nodes = GRAPH_NODES
 	iface_stats = IFACE_STATS
-	if 'pf1_proxy' in graph_stats:
-		graph_nodes += ('pf1_proxy',)
 	if 'virtsvc' in graph_stats:
 		graph_nodes += ('virtsvc',)
+	# TODO this is now broken with the new proxy implementation
 	if request.config.getoption("--hw"):
 		iface_stats += HW_IFACE_STATS
 		if PF1.tap == "pf1-tap":
