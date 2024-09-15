@@ -143,9 +143,10 @@ def test_telemetry_exporter(request, prepare_ifaces, start_exporter):
 	graph_nodes = GRAPH_NODES
 	iface_stats = IFACE_STATS
 	if 'pf1_proxy' in graph_stats:
-		graph_nodes += ('pf1_proxy',)
+		graph_nodes += ('pf1_proxy', 'pf1')
 	if 'virtsvc' in graph_stats:
 		graph_nodes += ('virtsvc',)
+	# TODO this is now broken with the new proxy implementation
 	if request.config.getoption("--hw"):
 		iface_stats += HW_IFACE_STATS
 		if PF1.tap == "pf1-tap":
