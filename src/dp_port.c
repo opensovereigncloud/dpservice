@@ -59,11 +59,10 @@ static const struct rte_meter_srtcm_params dp_srtcm_params_base = {
 
 struct dp_port *_dp_port_table[DP_MAX_PORTS];
 struct dp_port *_dp_pf_ports[DP_MAX_PF_PORTS];
+// TODO #ifdef ENABLE_PF1_PROXY
+struct dp_port _dp_pf1_proxy_port;
+// TODO #endif
 struct dp_ports _dp_ports;
-
-#ifdef ENABLE_PF1_PROXY
-struct dp_port _dp_pf_proxy_tap_port;
-#endif
 
 static int dp_port_register_pf(struct dp_port *port)
 {
@@ -266,6 +265,8 @@ static struct dp_port *dp_port_init_interface(uint16_t port_id, struct rte_eth_d
 	return port;
 }
 
+// TODO merge this with the above
+// TODO is this still needed??
 #ifdef ENABLE_PF1_PROXY
 static struct dp_port *dp_port_init_proxied_pf_interface(uint16_t port_id, struct rte_eth_dev_info *dev_info)
 {
@@ -318,11 +319,13 @@ static struct dp_port *dp_port_init_proxied_pf_interface(uint16_t port_id, struc
 
 	return port;
 }
+#endif
 
-static struct dp_port *dp_port_init_proxy_tap(uint16_t port_id, struct rte_eth_dev_info *dev_info)
+// TODO #ifdef ENABLE_PF1_PROXY
+// TODO needs cleanup maybe merging
+static struct dp_port *dp_port_init_pf1_proxy_interface(uint16_t port_id, struct rte_eth_dev_info *dev_info)
 {
-	// struct dp_port *port;
-	struct dp_port *port = &_dp_pf_proxy_tap_port;
+	struct dp_port *port;
 	int socket_id;
 	int ret;
 
@@ -336,8 +339,7 @@ static struct dp_port *dp_port_init_proxy_tap(uint16_t port_id, struct rte_eth_d
 		}
 	}
 
-	// oveflow check done by liming the number of calls to this function
-	// port = _dp_ports.end++;
+	port = &_dp_pf1_proxy_port;
 	port->is_pf = false;
 	port->port_id = port_id;
 	port->socket_id = socket_id;
@@ -345,15 +347,21 @@ static struct dp_port *dp_port_init_proxy_tap(uint16_t port_id, struct rte_eth_d
 	if (DP_FAILED(dp_port_init_ethdev(port, dev_info)))
 		return NULL;
 
-	DPS_LOG_INFO("INIT setting proxy tap to promiscuous mode", DP_LOG_PORT(port));
+	// TODO eswitch is implied by the proxy
+	if (dp_conf_is_multiport_eswitch() && DP_FAILED(dp_configure_async_flows(port->port_id)))
+		return NULL;
+
+	DPS_LOG_INFO("INIT setting PF1 proxy to promiscuous mode", DP_LOG_PORT(port));
 	ret = rte_eth_promiscuous_enable(port->port_id);
 	if (DP_FAILED(ret)) {
 		DPS_LOG_ERR("Promiscuous mode setting failed", DP_LOG_PORT(port), DP_LOG_RET(ret));
 		return NULL;
 	}
 
-	DPS_LOG_INFO("INIT setting proxy tap MTU to 9100", DP_LOG_PORT(port));
-	ret = rte_eth_dev_set_mtu(port->port_id, 9100);
+	// TODO maybe part of the node init?
+	// TODO if not then also MAC here!
+	DPS_LOG_INFO("INIT setting PF1 proxy MTU to 9100", DP_LOG_PORT(port));
+	ret = rte_eth_dev_set_mtu(port->port_id, 9100);  // TODO get the value from PF1!
 	if (DP_FAILED(ret)) {
 		DPS_LOG_ERR("MTU setting failed", DP_LOG_PORT(port), DP_LOG_RET(ret));
 		return NULL;
@@ -363,13 +371,14 @@ static struct dp_port *dp_port_init_proxy_tap(uint16_t port_id, struct rte_eth_d
 	struct rte_ether_addr pf1_neigh_mac = dp_get_port_by_pf_index(1)->neigh_mac;
 	char mac[18];
 
+	// TODO yeah, this needs to be changed for all PFs too!
 	snprintf(mac, sizeof(mac), RTE_ETHER_ADDR_PRT_FMT, RTE_ETHER_ADDR_BYTES(&pf1_neigh_mac));
 	DPS_LOG_INFO("Setting neighboring MAC", _DP_LOG_STR("mac", mac), DP_LOG_PORT(port));
 	rte_ether_addr_copy(&pf1_neigh_mac, &port->neigh_mac);
 
 	return port;
 }
-#endif
+// TODO #endif
 
 static int dp_port_set_up_hairpins(void)
 {
@@ -399,6 +408,7 @@ static int dp_port_init_pf(const char *pf_name)
 			return DP_ERROR;
 		if (!strncmp(pf_name, ifname, sizeof(ifname))) {
 			DPS_LOG_INFO("INIT initializing PF port", DP_LOG_PORTID(port_id), DP_LOG_IFNAME(ifname));
+// TODO (see aboveú these can be merged
 #ifdef ENABLE_PF1_PROXY
 			if (dp_conf_is_pf1_proxy_enabled() && strncmp(pf_name, dp_conf_get_pf1_name(), sizeof(ifname)) == 0)
 				port = dp_port_init_proxied_pf_interface(port_id, &dev_info);
@@ -417,8 +427,9 @@ static int dp_port_init_pf(const char *pf_name)
 	return DP_ERROR;
 }
 
-#ifdef ENABLE_PF1_PROXY
-static int dp_port_init_tap_proxy(const char *pf_tap_proxy_name)
+// TODO #ifdef ENABLE_PF1_PROXY
+// TODO this can be merged with the others maybe
+static int dp_port_init_pf1_proxy(const char *pf1_proxy_name)
 {
 	if (!dp_conf_is_pf1_proxy_enabled())
 		return DP_OK;
@@ -431,19 +442,19 @@ static int dp_port_init_tap_proxy(const char *pf_tap_proxy_name)
 	RTE_ETH_FOREACH_DEV(port_id) {
 		if (DP_FAILED(dp_get_dev_info(port_id, &dev_info, ifname)))
 			return DP_ERROR;
-		if (!strncmp(pf_tap_proxy_name, ifname, sizeof(ifname))) {
-			DPS_LOG_INFO("INIT initializing PF proxy tap port", DP_LOG_PORTID(port_id), DP_LOG_IFNAME(ifname));
-			port = dp_port_init_proxy_tap(port_id, &dev_info);
+		if (!strncmp(pf1_proxy_name, ifname, sizeof(ifname))) {
+			DPS_LOG_INFO("INIT initializing PF1 proxy port", DP_LOG_PORTID(port_id), DP_LOG_IFNAME(ifname));
+			port = dp_port_init_pf1_proxy_interface(port_id, &dev_info);
 			if (!port)
 				return DP_ERROR;
-			snprintf(port->port_name, sizeof(port->port_name), "%s", pf_tap_proxy_name);
+			snprintf(port->port_name, sizeof(port->port_name), "%s", pf1_proxy_name);
 			return DP_OK;
 		}
 	}
-	DPS_LOG_ERR("No such PF proxy tap port", DP_LOG_NAME(pf_tap_proxy_name));
+	DPS_LOG_ERR("No such PF1 proxy port", DP_LOG_NAME(pf1_proxy_name));
 	return DP_ERROR;
 }
-#endif
+// TODO #endif
 
 static int dp_port_init_vfs(const char *vf_pattern, int num_of_vfs)
 {
@@ -468,11 +479,7 @@ static int dp_port_init_vfs(const char *vf_pattern, int num_of_vfs)
 	if (!vf_count) {
 		DPS_LOG_ERR("No such VF", DP_LOG_NAME(vf_pattern));
 		return DP_ERROR;
-	} else if (vf_count < num_of_vfs
-#ifdef ENABLE_PF1_PROXY
-		- (dp_conf_is_pf1_proxy_enabled() ? 1 : 0)
-#endif
-	) {
+	} else if (vf_count < num_of_vfs) {
 		DPS_LOG_ERR("Not all VFs initialized", DP_LOG_VALUE(vf_count), DP_LOG_MAX(num_of_vfs));
 		return DP_ERROR;
 	}
@@ -494,9 +501,9 @@ int dp_ports_init(void)
 	// these need to be done in order
 	if (DP_FAILED(dp_port_init_pf(dp_conf_get_pf0_name()))
 		|| DP_FAILED(dp_port_init_pf(dp_conf_get_pf1_name()))
-#ifdef ENABLE_PF1_PROXY
-		|| DP_FAILED(dp_port_init_tap_proxy(dp_conf_get_pf1_proxy()))
-#endif
+// TODO #ifdef ENABLE_PF1_PROXY
+		|| DP_FAILED(dp_port_init_pf1_proxy(dp_conf_get_pf1_proxy()))
+// TODO #endif
 		|| DP_FAILED(dp_port_init_vfs(dp_conf_get_vf_pattern(), num_of_vfs)))
 		return DP_ERROR;
 
@@ -531,11 +538,12 @@ static int dp_stop_eth_port(struct dp_port *port)
 
 	ret = rte_eth_dev_stop(port->port_id);
 	if (DP_FAILED(ret))
-		DPS_LOG_ERR("Cannot stop ethernet port", DP_LOG_PORTID(port->port_id), DP_LOG_RET(ret));
+		DPS_LOG_ERR("Cannot stop ethernet port", DP_LOG_PORT(port), DP_LOG_RET(ret));
 
+	// TODO THIS CANNOT BE THERE!
 	ret = rte_eth_dev_close(port->port_id);
 	if (DP_FAILED(ret))
-		DPS_LOG_ERR("Cannot close ethernet port", DP_LOG_PORTID(port->port_id), DP_LOG_RET(ret));
+		DPS_LOG_ERR("Cannot close ethernet port", DP_LOG_PORT(port), DP_LOG_RET(ret));
 
 	return ret;
 }
@@ -545,9 +553,9 @@ void dp_ports_stop(void)
 	// in multiport-mode, PF0 needs to be stopped last
 	struct dp_port *pf0 = dp_get_port_by_pf_index(0);
 
-#ifdef ENABLE_PF1_PROXY
-	dp_stop_eth_port(&_dp_pf_proxy_tap_port);
-#endif
+// TODO #ifdef ENABLE_PF1_PROXY
+	dp_stop_eth_port(&_dp_pf1_proxy_port);
+// TODO #endif
 
 	// without stopping started ports, DPDK complains
 	DP_FOREACH_PORT(&_dp_ports, port) {
@@ -612,16 +620,22 @@ static int dp_port_install_async_isolated_mode(struct dp_port *port)
 
 static int dp_port_create_default_pf_async_templates(struct dp_port *port)
 {
-	DPS_LOG_INFO("Installing PF async templates", DP_LOG_PORTID(port->port_id));
+	DPS_LOG_INFO("Installing PF async templates", DP_LOG_PORT(port));
 	if (DP_FAILED(dp_create_pf_async_isolation_templates(port))) {
-		DPS_LOG_ERR("Failed to create pf async isolation templates", DP_LOG_PORTID(port->port_id));
+		DPS_LOG_ERR("Failed to create pf async isolation templates", DP_LOG_PORT(port));
 		return DP_ERROR;
 	}
+// TODO #ifdef ENABLE_PF1_PROXY
+	if (port == dp_get_pf0() && DP_FAILED(dp_create_pf_async_proxy_templates(port))) {
+		DPS_LOG_ERR("Failed to create pf async proxy templates", DP_LOG_PORT(port));
+		return DP_ERROR;
+	}
+// TODO #endif
 #ifdef ENABLE_VIRTSVC
 	if (DP_FAILED(dp_create_virtsvc_async_isolation_templates(port, IPPROTO_TCP))
 		|| DP_FAILED(dp_create_virtsvc_async_isolation_templates(port, IPPROTO_UDP))
 	) {
-		DPS_LOG_ERR("Failed to create virtsvc async isolation templates", DP_LOG_PORTID(port->port_id));
+		DPS_LOG_ERR("Failed to create virtsvc async isolation templates", DP_LOG_PORT(port));
 		return DP_ERROR;
 	}
 #endif
@@ -686,12 +700,14 @@ int dp_start_port(struct dp_port *port)
 	return DP_OK;
 }
 
-#ifdef ENABLE_PF1_PROXY
-int dp_start_pf_proxy_tap_port(void)
+// TODO #ifdef ENABLE_PF1_PROXY
+// TODO like this or export the port?
+int dp_start_pf1_proxy_port(void)
 {
-	return dp_start_port(&_dp_pf_proxy_tap_port);
+	// TODO is this enough??
+	return rte_eth_dev_start(_dp_pf1_proxy_port.port_id);
 }
-#endif
+// TODO #endif
 
 int dp_stop_port(struct dp_port *port)
 {

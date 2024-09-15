@@ -38,7 +38,7 @@ static struct dp_conf_dhcp_dns dhcpv6_dns = {0};
 static struct dp_conf_virtual_services virtual_services = {0};
 #endif
 
-#ifdef ENABLE_PF1_PROXY
+// TODO #ifdef ENABLE_PF1_PROXY
 static char dp_conf_pf1_proxy[IF_NAMESIZE] = {0};
 
 const char *dp_conf_get_pf1_proxy(void)
@@ -50,7 +50,7 @@ bool dp_conf_is_pf1_proxy_enabled(void)
 {
 	return *dp_conf_pf1_proxy;
 }
-#endif
+// TODO #endif
 
 int dp_conf_is_wcmp_enabled(void)
 {
@@ -286,10 +286,10 @@ static int parse_line(char *line, int lineno)
 	if (!strcmp(key, "a-pf1"))
 		return dp_argparse_string(value, eal_a_pf1, sizeof(eal_a_pf1));
 
-#ifdef ENABLE_PF1_PROXY
+// TODO #ifdef ENABLE_PF1_PROXY
 	if (!strcmp(key, "pf1-proxy"))
 		return dp_argparse_string(value, dp_conf_pf1_proxy, sizeof(dp_conf_pf1_proxy));
-#endif
+// TODO #endif
 
 	// Otherwise support all long options
 	if (!longopt) {

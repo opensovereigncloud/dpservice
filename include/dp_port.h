@@ -57,6 +57,9 @@ struct dp_port_async_template {
 
 enum dp_port_async_template_type {
 	DP_PORT_ASYNC_TEMPLATE_PF_ISOLATION,
+// TODO #ifdef ENABLE_PF1_PROXY
+	DP_PORT_ASYNC_TEMPLATE_PF1_PROXY,
+// TODO #endif
 #ifdef ENABLE_VIRTSVC
 	DP_PORT_ASYNC_TEMPLATE_VIRTSVC_TCP_ISOLATION,
 	DP_PORT_ASYNC_TEMPLATE_VIRTSVC_UDP_ISOLATION,
@@ -67,6 +70,10 @@ enum dp_port_async_template_type {
 enum dp_port_async_flow_type {
 	DP_PORT_ASYNC_FLOW_ISOLATE_IPIP,
 	DP_PORT_ASYNC_FLOW_ISOLATE_IPV6,
+// TODO #ifdef ENABLE_PF1_PROXY
+	DP_PORT_ASYNC_FLOW_PF1_TO_PROXY,
+	DP_PORT_ASYNC_FLOW_PF1_FROM_PROXY,
+// TODO #endif
 	DP_PORT_ASYNC_FLOW_COUNT,
 };
 
@@ -110,9 +117,9 @@ extern struct dp_port *_dp_port_table[DP_MAX_PORTS];
 extern struct dp_port *_dp_pf_ports[DP_MAX_PF_PORTS];
 extern struct dp_ports _dp_ports;
 
-#ifdef ENABLE_PF1_PROXY
-extern struct dp_port _dp_pf_proxy_tap_port;
-#endif
+// TODO #ifdef ENABLE_PF1_PROXY
+extern struct dp_port _dp_pf1_proxy_port;
+// TODO #endif
 
 
 struct dp_port *dp_get_port_by_name(const char *pci_name);
@@ -122,9 +129,10 @@ void dp_ports_stop(void);
 void dp_ports_free(void);
 
 int dp_start_port(struct dp_port *port);
-#ifdef ENABLE_PF1_PROXY
-int dp_start_pf_proxy_tap_port(void);
-#endif
+// TODO #ifdef ENABLE_PF1_PROXY
+// TODO may be possible to merge with the above
+int dp_start_pf1_proxy_port(void);
+// TODO #endif
 int dp_stop_port(struct dp_port *port);
 
 int dp_port_meter_config(struct dp_port *port, uint64_t total_flow_rate_cap, uint64_t public_flow_rate_cap);
@@ -159,6 +167,7 @@ static __rte_always_inline
 struct dp_port *dp_get_port_by_id(uint16_t port_id)
 {
 #ifdef ENABLE_PF1_PROXY
+	// TODO I dont think this is actually needed at all
 	// TODO needs another look
 	if (unlikely(dp_conf_is_pf1_proxy_enabled() && port_id == _dp_pf_proxy_tap_port.port_id))
 		return &_dp_pf_proxy_tap_port;
@@ -200,13 +209,13 @@ struct dp_port *dp_get_port_by_pf_index(uint16_t index)
 	return index < RTE_DIM(_dp_pf_ports) ? _dp_pf_ports[index] : NULL;
 }
 
-#ifdef ENABLE_PF1_PROXY
+// TODO #ifdef ENABLE_PF1_PROXY
 static __rte_always_inline
-const struct dp_port *dp_get_pf_proxy_tap_port(void)
+const struct dp_port *dp_get_pf1_proxy_port(void)
 {
-	return &_dp_pf_proxy_tap_port;
+	return &_dp_pf1_proxy_port;
 }
-#endif
+// TODO #endif
 
 #ifdef __cplusplus
 }

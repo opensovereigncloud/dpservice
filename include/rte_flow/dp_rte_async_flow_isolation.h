@@ -14,6 +14,9 @@ extern "C" {
 #include "dp_port.h"
 
 int dp_create_pf_async_isolation_templates(struct dp_port *port);
+// TODO #ifdef ENABLE_PF1_PROXY
+int dp_create_pf_async_proxy_templates(struct dp_port *port);
+// TODO #endif
 
 int dp_create_pf_async_isolation_rules(struct dp_port *port);
 

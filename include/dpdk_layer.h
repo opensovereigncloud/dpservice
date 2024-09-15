@@ -14,6 +14,7 @@ extern "C" {
 
 #define DP_MAX_PF_PORTS 2
 #define DP_MAX_VF_PORTS 126
+// TODO revisit this before changing
 #ifdef ENABLE_PF1_PROXY
 #define DP_MAX_PORTS    (DP_MAX_PF_PORTS + DP_MAX_VF_PORTS + 1)
 #else

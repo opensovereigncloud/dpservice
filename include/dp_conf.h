@@ -48,10 +48,10 @@ const union dp_ipv6 *dp_conf_get_underlay_ip(void);
 const struct dp_conf_dhcp_dns *dp_conf_get_dhcp_dns(void);
 const struct dp_conf_dhcp_dns *dp_conf_get_dhcpv6_dns(void);
 
-#ifdef ENABLE_PF1_PROXY
+// TODO #ifdef ENABLE_PF1_PROXY
 const char *dp_conf_get_pf1_proxy(void);
 bool dp_conf_is_pf1_proxy_enabled(void);
-#endif
+// TODO #endif
 
 #ifdef ENABLE_VIRTSVC
 const struct dp_conf_virtual_services *dp_conf_get_virtual_services(void);
