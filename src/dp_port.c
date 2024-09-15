@@ -531,14 +531,34 @@ static int dp_stop_eth_port(struct dp_port *port)
 
 	ret = rte_eth_dev_stop(port->port_id);
 	if (DP_FAILED(ret))
-		DPS_LOG_ERR("Cannot stop ethernet port", DP_LOG_PORTID(port->port_id), DP_LOG_RET(ret));
+		DPS_LOG_ERR("Cannot stop ethernet port", DP_LOG_PORT(port), DP_LOG_RET(ret));
 
 	ret = rte_eth_dev_close(port->port_id);
 	if (DP_FAILED(ret))
-		DPS_LOG_ERR("Cannot close ethernet port", DP_LOG_PORTID(port->port_id), DP_LOG_RET(ret));
+		DPS_LOG_ERR("Cannot close ethernet port", DP_LOG_PORT(port), DP_LOG_RET(ret));
 
 	return ret;
 }
+
+// TODO #ifdef ENABLE_PF1_PROXY
+// TODO this should really use some port structure like &_dp_pf1_proxy_port!
+static void dp_stop_pf1_proxy_port(void)
+{
+	// TODO this needs to be done in some central place, not here -> dp_get_proxy_port_id() in dpdk_layer
+	uint16_t proxy_port_id = (uint16_t)(DP_MAX_PF_PORTS + get_dpdk_layer()->num_of_vfs - 1);
+	int ret;
+
+	ret = rte_eth_dev_stop(proxy_port_id);
+	if (DP_FAILED(ret))
+		DPS_LOG_ERR("Cannot stop ethernet port", DP_LOG_PORTID(proxy_port_id), DP_LOG_RET(ret));
+
+	ret = rte_eth_dev_close(proxy_port_id);
+	if (DP_FAILED(ret))
+		DPS_LOG_ERR("Cannot close ethernet port", DP_LOG_PORTID(proxy_port_id), DP_LOG_RET(ret));
+
+	// TODO void?
+}
+// TODO #endif
 
 void dp_ports_stop(void)
 {
@@ -548,6 +568,9 @@ void dp_ports_stop(void)
 #ifdef ENABLE_PF1_PROXY
 	dp_stop_eth_port(&_dp_pf_proxy_tap_port);
 #endif
+// TODO #ifdef ENABLE_PF1_PROXY
+	dp_stop_pf1_proxy_port();
+// TODO #endif
 
 	// without stopping started ports, DPDK complains
 	DP_FOREACH_PORT(&_dp_ports, port) {
@@ -612,16 +635,22 @@ static int dp_port_install_async_isolated_mode(struct dp_port *port)
 
 static int dp_port_create_default_pf_async_templates(struct dp_port *port)
 {
-	DPS_LOG_INFO("Installing PF async templates", DP_LOG_PORTID(port->port_id));
+	DPS_LOG_INFO("Installing PF async templates", DP_LOG_PORT(port));
 	if (DP_FAILED(dp_create_pf_async_isolation_templates(port))) {
-		DPS_LOG_ERR("Failed to create pf async isolation templates", DP_LOG_PORTID(port->port_id));
+		DPS_LOG_ERR("Failed to create pf async isolation templates", DP_LOG_PORT(port));
 		return DP_ERROR;
 	}
+// TODO #ifdef ENABLE_PF1_PROXY
+	if (port == dp_get_pf0() && DP_FAILED(dp_create_pf_async_proxy_templates(port))) {
+		DPS_LOG_ERR("Failed to create pf async proxy templates", DP_LOG_PORT(port));
+		return DP_ERROR;
+	}
+// TODO #endif
 #ifdef ENABLE_VIRTSVC
 	if (DP_FAILED(dp_create_virtsvc_async_isolation_templates(port, IPPROTO_TCP))
 		|| DP_FAILED(dp_create_virtsvc_async_isolation_templates(port, IPPROTO_UDP))
 	) {
-		DPS_LOG_ERR("Failed to create virtsvc async isolation templates", DP_LOG_PORTID(port->port_id));
+		DPS_LOG_ERR("Failed to create virtsvc async isolation templates", DP_LOG_PORT(port));
 		return DP_ERROR;
 	}
 #endif
@@ -683,6 +712,16 @@ int dp_start_pf_proxy_tap_port(void)
 	return dp_start_port(&_dp_pf_proxy_tap_port);
 }
 #endif
+// TODO #ifdef ENABLE_PF1_PROXY
+// TODO this should really use some port structure like &_dp_pf1_proxy_port!
+int dp_start_pf1_proxy_port(void)
+{
+	// TODO this needs to be done in some central place, not here -> dp_get_proxy_port_id() in dpdk_layer
+	uint16_t proxy_port_id = (uint16_t)(DP_MAX_PF_PORTS + get_dpdk_layer()->num_of_vfs - 1);
+
+	return rte_eth_dev_start(proxy_port_id);
+}
+// TODO #endif
 
 int dp_stop_port(struct dp_port *port)
 {

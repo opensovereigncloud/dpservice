@@ -57,6 +57,9 @@ struct dp_port_async_template {
 
 enum dp_port_async_template_type {
 	DP_PORT_ASYNC_TEMPLATE_PF_ISOLATION,
+// TODO #ifdef ENABLE_PF1_PROXY
+	DP_PORT_ASYNC_TEMPLATE_PF1_PROXY,
+// TODO #endif
 #ifdef ENABLE_VIRTSVC
 	DP_PORT_ASYNC_TEMPLATE_VIRTSVC_TCP_ISOLATION,
 	DP_PORT_ASYNC_TEMPLATE_VIRTSVC_UDP_ISOLATION,
@@ -67,6 +70,10 @@ enum dp_port_async_template_type {
 enum dp_port_async_flow_type {
 	DP_PORT_ASYNC_FLOW_ISOLATE_IPIP,
 	DP_PORT_ASYNC_FLOW_ISOLATE_IPV6,
+// TODO #ifdef ENABLE_PF1_PROXY
+	DP_PORT_ASYNC_FLOW_PF1_TO_PROXY,
+	DP_PORT_ASYNC_FLOW_PF1_FROM_PROXY,
+// TODO #endif
 	DP_PORT_ASYNC_FLOW_COUNT,
 };
 
@@ -125,6 +132,9 @@ int dp_start_port(struct dp_port *port);
 #ifdef ENABLE_PF1_PROXY
 int dp_start_pf_proxy_tap_port(void);
 #endif
+// TODO #ifdef ENABLE_PF1_PROXY
+int dp_start_pf1_proxy_port(void);
+// TODO #endif
 int dp_stop_port(struct dp_port *port);
 
 int dp_port_meter_config(struct dp_port *port, uint64_t total_flow_rate_cap, uint64_t public_flow_rate_cap);
