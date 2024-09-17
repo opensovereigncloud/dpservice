@@ -40,12 +40,12 @@ static const struct rte_eth_conf port_conf_default = {
 			RTE_ETH_TX_OFFLOAD_TCP_CKSUM |
 			RTE_ETH_TX_OFFLOAD_IP_TNL_TSO
 	},
-	.rx_adv_conf = {
-		.rss_conf = {
-			.rss_key = NULL,
-			.rss_hf = 0,//RTE_ETH_RSS_IP,
-		},
-	},
+	// .rx_adv_conf = {
+	// 	.rss_conf = {
+	// 		.rss_key = NULL,
+	// 		.rss_hf = 0,
+	// 	},
+	// },
 	.intr_conf = {
 		.lsc = 1, /**< lsc interrupt feature enabled */
 	},
@@ -152,7 +152,7 @@ static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *de
 	}
 
 	/* dp-service specific config */
-	if (!port->is_pf) {
+	if (!port->is_pf && port->port_id != 127) {
 		DPS_LOG_INFO("INIT setting port to promiscuous mode", DP_LOG_PORT(port));
 		ret = rte_eth_promiscuous_enable(port->port_id);
 		if (DP_FAILED(ret)) {
