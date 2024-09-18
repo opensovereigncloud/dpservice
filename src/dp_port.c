@@ -40,12 +40,12 @@ static const struct rte_eth_conf port_conf_default = {
 			RTE_ETH_TX_OFFLOAD_TCP_CKSUM |
 			RTE_ETH_TX_OFFLOAD_IP_TNL_TSO
 	},
-	// .rx_adv_conf = {
-	// 	.rss_conf = {
-	// 		.rss_key = NULL,
-	// 		.rss_hf = 0,
-	// 	},
-	// },
+	.rx_adv_conf = {
+		.rss_conf = {
+			.rss_key = NULL,
+			.rss_hf = 0,
+		},
+	},
 	.intr_conf = {
 		.lsc = 1, /**< lsc interrupt feature enabled */
 	},
@@ -151,14 +151,14 @@ static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *de
 	}
 
 	/* dp-service specific config */
-	if (!port->is_pf && port->port_id != 127) {
-		DPS_LOG_INFO("INIT setting port to promiscuous mode", DP_LOG_PORT(port));
-		ret = rte_eth_promiscuous_enable(port->port_id);
-		if (DP_FAILED(ret)) {
-			DPS_LOG_ERR("Promiscuous mode setting failed", DP_LOG_PORT(port), DP_LOG_RET(ret));
-			return DP_ERROR;
-		}
-	}
+	// if (!port->is_pf && port->port_id != 127) {
+	// 	DPS_LOG_INFO("INIT setting port to promiscuous mode", DP_LOG_PORT(port));
+	// 	ret = rte_eth_promiscuous_enable(port->port_id);
+	// 	if (DP_FAILED(ret)) {
+	// 		DPS_LOG_ERR("Promiscuous mode setting failed", DP_LOG_PORT(port), DP_LOG_RET(ret));
+	// 		return DP_ERROR;
+	// 	}
+	// }
 
 	if (DP_FAILED(dp_load_mac(port))) {
 		DPS_LOG_ERR("Cannot retrieve MAC address", DP_LOG_PORT(port));
@@ -396,6 +396,20 @@ static int dp_port_set_up_hairpins(void)
 	return DP_OK;
 }
 
+void dp_start_all(void)
+{
+	int ret;
+
+	DP_FOREACH_PORT(&_dp_ports, port) {
+		if (!port->is_pf) {
+			DPS_LOG_INFO("Starting", DP_LOG_PORT(port));
+			ret = dp_start_port(port);
+			if (DP_FAILED(ret))
+				DPS_LOG_ERR("Failed to start", DP_LOG_PORT(port), DP_LOG_RET(ret));
+		}
+	}
+}
+
 static int dp_port_init_pf(const char *pf_name)
 {
 	uint16_t port_id;
@@ -490,6 +504,8 @@ int dp_ports_init(void)
 {
 	int num_of_vfs = get_dpdk_layer()->num_of_vfs;
 	int num_of_ports = DP_MAX_PF_PORTS + num_of_vfs;
+
+	DPS_LOG_INFO("dp_ports_init", DP_LOG_VALUE(num_of_vfs), DP_LOG_VALUE(num_of_ports));
 
 	_dp_ports.ports = (struct dp_port *)calloc(num_of_ports, sizeof(struct dp_port));
 	if (!_dp_ports.ports) {
@@ -621,6 +637,11 @@ static int dp_port_install_async_isolated_mode(struct dp_port *port)
 static int dp_port_create_default_pf_async_templates(struct dp_port *port)
 {
 	DPS_LOG_INFO("Installing PF async templates", DP_LOG_PORT(port));
+	if (DP_FAILED(dp_create_pf_async_group_templates(port))) {
+		DPS_LOG_ERR("Failed to create group async isolation templates", DP_LOG_PORT(port));
+		return DP_ERROR;
+	}
+
 	if (DP_FAILED(dp_create_pf_async_isolation_templates(port))) {
 		DPS_LOG_ERR("Failed to create pf async isolation templates", DP_LOG_PORT(port));
 		return DP_ERROR;
