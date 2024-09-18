@@ -57,6 +57,7 @@ struct dp_port_async_template {
 
 enum dp_port_async_template_type {
 	DP_PORT_ASYNC_TEMPLATE_PF_ISOLATION,
+	DP_PORT_ASYNC_TEMPLATE_GROUP_ISOLATION,
 // TODO #ifdef ENABLE_PF1_PROXY
 	DP_PORT_ASYNC_TEMPLATE_PF1_PROXY,
 // TODO #endif
@@ -70,6 +71,7 @@ enum dp_port_async_template_type {
 enum dp_port_async_flow_type {
 	DP_PORT_ASYNC_FLOW_ISOLATE_IPIP,
 	DP_PORT_ASYNC_FLOW_ISOLATE_IPV6,
+	DP_PORT_ASYNC_FLOW_ISOLATE_GROUP,
 // TODO #ifdef ENABLE_PF1_PROXY
 	DP_PORT_ASYNC_FLOW_PF1_TO_PROXY,
 	DP_PORT_ASYNC_FLOW_PF1_FROM_PROXY,
@@ -127,6 +129,7 @@ struct dp_port *dp_get_port_by_name(const char *pci_name);
 int dp_ports_init(void);
 void dp_ports_stop(void);
 void dp_ports_free(void);
+void dp_start_all(void);
 
 int dp_start_port(struct dp_port *port);
 #ifdef ENABLE_PF1_PROXY
