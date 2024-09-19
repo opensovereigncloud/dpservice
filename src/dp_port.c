@@ -651,6 +651,11 @@ static int dp_port_create_default_pf_async_templates(struct dp_port *port)
 		DPS_LOG_ERR("Failed to create pf async proxy templates", DP_LOG_PORT(port));
 		return DP_ERROR;
 	}
+
+	if (port == dp_get_pf0() && DP_FAILED(dp_create_pf_async_proxy_templates_dst(port))) {
+		DPS_LOG_ERR("Failed to create pf async proxy templates", DP_LOG_PORT(port));
+		return DP_ERROR;
+	}
 // TODO #endif
 #ifdef ENABLE_VIRTSVC
 	if (DP_FAILED(dp_create_virtsvc_async_isolation_templates(port, IPPROTO_TCP))

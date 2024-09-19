@@ -62,6 +62,11 @@ static const struct rte_flow_item_ipv6 dp_flow_item_ipv6_src_mask = {
 	.hdr.src_addr = "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
 	.hdr.proto = 0xff,
 };
+static const struct rte_flow_item_ipv6 dp_flow_item_ipv6_src_dst_mask = {
+	.hdr.src_addr = "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+	.hdr.dst_addr = "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+	.hdr.proto = 0xff,
+};
 static const struct rte_flow_item_ipv6 dp_flow_item_ipv6_dst_mask = {
 	.hdr.dst_addr = "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
 	.hdr.proto = 0xff,
