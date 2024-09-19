@@ -26,11 +26,16 @@ int virtsvc_node_append_tx(uint16_t port_id, const char *tx_node_name)
 }
 
 // runtime constant, precompute
-static const union dp_ipv6 *service_ul_ip;
+static union dp_ipv6 service_ul_ip;
 
 static int virtsvc_node_init(__rte_unused const struct rte_graph *graph, __rte_unused struct rte_node *node)
 {
-	service_ul_ip = dp_conf_get_underlay_ip();
+	//service_ul_ip = dp_conf_get_underlay_ip();
+	dp_generate_ul_ipv6(&service_ul_ip);
+
+    // Print the IPv6 address for debugging
+	DPS_LOG_INFO("New IPv6 virtual service Address", DP_LOG_IPV6(service_ul_ip));
+
 	return DP_OK;
 }
 
@@ -102,7 +107,7 @@ static __rte_always_inline uint16_t virtsvc_request_next(struct rte_node *node,
 	ipv6_hdr->payload_len = htons((uint16_t)(hdr_total_len - sizeof(struct rte_ipv4_hdr)));
 	ipv6_hdr->proto = proto;
 	ipv6_hdr->hop_limits = ttl;
-	dp_set_src_ipv6(ipv6_hdr, service_ul_ip);
+	dp_set_src_ipv6(ipv6_hdr, &service_ul_ip);
 	dp_set_dst_ipv6(ipv6_hdr, &virtsvc->service_addr);
 	m->ol_flags |= RTE_MBUF_F_TX_IPV6;
 	m->tx_offload = 0;
