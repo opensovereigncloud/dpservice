@@ -327,7 +327,7 @@ static struct dp_port *dp_port_init_pf1_proxy_interface(uint16_t port_id, struct
 {
 	struct dp_port *port;
 	int socket_id;
-	int ret;
+	//int ret;
 
 	socket_id = rte_eth_dev_socket_id(port_id);
 	if (DP_FAILED(socket_id)) {
@@ -351,21 +351,21 @@ static struct dp_port *dp_port_init_pf1_proxy_interface(uint16_t port_id, struct
 	if (dp_conf_is_multiport_eswitch() && DP_FAILED(dp_configure_async_flows(port->port_id)))
 		return NULL;
 
-	DPS_LOG_INFO("INIT setting PF1 proxy to promiscuous mode", DP_LOG_PORT(port));
-	ret = rte_eth_promiscuous_enable(port->port_id);
-	if (DP_FAILED(ret)) {
-		DPS_LOG_ERR("Promiscuous mode setting failed", DP_LOG_PORT(port), DP_LOG_RET(ret));
-		return NULL;
-	}
+	//DPS_LOG_INFO("INIT setting PF1 proxy to promiscuous mode", DP_LOG_PORT(port));
+	// ret = rte_eth_promiscuous_enable(port->port_id);
+	// if (DP_FAILED(ret)) {
+	// 	DPS_LOG_ERR("Promiscuous mode setting failed", DP_LOG_PORT(port), DP_LOG_RET(ret));
+	// 	return NULL;
+	// }
 
 	// TODO maybe part of the node init?
 	// TODO if not then also MAC here!
-	DPS_LOG_INFO("INIT setting PF1 proxy MTU to 9100", DP_LOG_PORT(port));
-	ret = rte_eth_dev_set_mtu(port->port_id, 9100);  // TODO get the value from PF1!
-	if (DP_FAILED(ret)) {
-		DPS_LOG_ERR("MTU setting failed", DP_LOG_PORT(port), DP_LOG_RET(ret));
-		return NULL;
-	}
+	// DPS_LOG_INFO("INIT setting PF1 proxy MTU to 9100", DP_LOG_PORT(port));
+	// ret = rte_eth_dev_set_mtu(port->port_id, 9100);  // TODO get the value from PF1!
+	// if (DP_FAILED(ret)) {
+	// 	DPS_LOG_ERR("MTU setting failed", DP_LOG_PORT(port), DP_LOG_RET(ret));
+	// 	return NULL;
+	// }
 
 	// TODO some wrapper
 	struct rte_ether_addr pf1_neigh_mac = dp_get_port_by_pf_index(1)->neigh_mac;
