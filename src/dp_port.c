@@ -212,7 +212,7 @@ static struct dp_port *dp_port_init_interface(uint16_t port_id, struct rte_eth_d
 		return NULL;
 	}
 
-	if (is_pf) {
+	if (is_pf && port_id == 0) {
 		if (dp_conf_get_nic_type() != DP_CONF_NIC_TYPE_TAP)
 			if (DP_FAILED(dp_port_flow_isolate(port_id)))
 				return NULL;
@@ -637,11 +637,6 @@ static int dp_port_install_async_isolated_mode(struct dp_port *port)
 static int dp_port_create_default_pf_async_templates(struct dp_port *port)
 {
 	DPS_LOG_INFO("Installing PF async templates", DP_LOG_PORT(port));
-	if (DP_FAILED(dp_create_pf_async_group_templates(port))) {
-		DPS_LOG_ERR("Failed to create group async isolation templates", DP_LOG_PORT(port));
-		return DP_ERROR;
-	}
-
 	if (DP_FAILED(dp_create_pf_async_isolation_templates(port))) {
 		DPS_LOG_ERR("Failed to create pf async isolation templates", DP_LOG_PORT(port));
 		return DP_ERROR;
