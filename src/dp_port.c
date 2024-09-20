@@ -28,6 +28,8 @@
 #define DP_PORT_PROXIED true
 #define DP_PORT_NORMAL false
 
+#define DP_PORT_PROMISCUOUS true
+
 #define DP_METER_CIR_BASE_VALUE  (1024 * 1024) // 1 Mbits
 #define DP_METER_EBS_BREAK_VALUE 100     // 100 Mbits/s, it used to differentiate different ebs calculation strategy to achieve relative stable metering results. epirical value.
 #define DP_METER_MBITS_TO_BYTES  (1024 * 1024 / 8)
@@ -106,7 +108,7 @@ static void dp_set_neighmac(struct dp_port *port, const struct rte_ether_addr *m
 	DPS_LOG_INFO("Setting neighboring MAC", _DP_LOG_STR("mac", strmac), DP_LOG_PORT(port));
 }
 
-static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *dev_info)
+static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *dev_info, bool promiscuous)
 {
 	struct dp_dpdk_layer *dp_layer = get_dpdk_layer();
 	struct rte_ether_addr pf_neigh_mac = {0};
@@ -164,9 +166,7 @@ static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *de
 	}
 
 	/* dp-service specific config */
-	// TODO this needs more investigation as to why it's a problem in OSC
-	// TODO should proxied PF be promiscuous? To receive everything?
-	if (!port->is_pf) {
+	if (promiscuous) {
 		DPS_LOG_INFO("INIT setting port to promiscuous mode", DP_LOG_PORT(port));
 		ret = rte_eth_promiscuous_enable(port->port_id);
 		if (DP_FAILED(ret)) {
@@ -244,6 +244,7 @@ static struct dp_port *dp_port_init_interface(uint16_t port_id, struct rte_eth_d
 	static int last_pf1_hairpin_tx_rx_queue_offset = 1;
 	struct dp_port *port;
 	int socket_id;
+	bool promiscuous;
 	int ret;
 
 	socket_id = dp_get_port_socket_id(port_id);
@@ -263,7 +264,13 @@ static struct dp_port *dp_port_init_interface(uint16_t port_id, struct rte_eth_d
 	port->socket_id = socket_id;
 	_dp_port_table[port_id] = port;
 
-	if (DP_FAILED(dp_port_init_ethdev(port, dev_info)))
+	promiscuous = !port->is_pf;
+#ifdef ENABLE_PF1_PROXY
+	// TODO this needs more investigation as to why it's a problem in OSC
+	if (dp_conf_is_pf1_proxy_enabled())
+		promiscuous = false;
+#endif
+	if (DP_FAILED(dp_port_init_ethdev(port, dev_info, promiscuous)))
 		return NULL;
 
 	if (is_pf) {
@@ -306,7 +313,7 @@ static struct dp_port *dp_port_init_pf1_proxy_interface(uint16_t port_id, struct
 	port->socket_id = socket_id;
 	_dp_port_table[port_id] = port;
 
-	if (DP_FAILED(dp_port_init_ethdev(port, dev_info)))
+	if (DP_FAILED(dp_port_init_ethdev(port, dev_info, DP_PORT_PROMISCUOUS)))
 		return NULL;
 
 	return port;
@@ -583,7 +590,9 @@ static int dp_init_port(struct dp_port *port)
 	if (port->is_pf) {
 		if (dp_conf_is_multiport_eswitch()) {
 			// no isolation on proxied PF
+#ifdef ENABLE_PF1_PROXY
 			if (port == dp_get_pf0() || !dp_conf_is_pf1_proxy_enabled())
+#endif
 				if (DP_FAILED(dp_port_create_default_pf_async_templates(port))
 					|| DP_FAILED(dp_port_install_async_isolated_mode(port)))
 					return DP_ERROR;
