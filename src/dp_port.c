@@ -187,8 +187,11 @@ static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *de
 		if (DP_FAILED(dp_get_pf_neigh_mac(dev_info->if_index, &pf_neigh_mac, &port->own_mac)))
 			return DP_ERROR;
 		dp_set_neighmac(port, &pf_neigh_mac);
-	} else if (dp_conf_is_pf1_proxy_enabled() && port == dp_get_pf1_proxy())
+	}
+#ifdef ENABLE_PF1_PROXY
+	else if (dp_conf_is_pf1_proxy_enabled() && port == dp_get_pf1_proxy())
 		dp_set_neighmac(port, &dp_get_pf1()->neigh_mac);
+#endif
 
 	if (dp_conf_is_multiport_eswitch() && DP_FAILED(dp_configure_async_flows(port->port_id)))
 		return DP_ERROR;
