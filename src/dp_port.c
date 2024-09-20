@@ -212,7 +212,7 @@ static struct dp_port *dp_port_init_interface(uint16_t port_id, struct rte_eth_d
 		return NULL;
 	}
 
-	if (is_pf && port_id == 0) {
+	if (is_pf) {
 		if (dp_conf_get_nic_type() != DP_CONF_NIC_TYPE_TAP)
 			if (DP_FAILED(dp_port_flow_isolate(port_id)))
 				return NULL;
@@ -557,9 +557,9 @@ static int dp_stop_eth_port(struct dp_port *port)
 		DPS_LOG_ERR("Cannot stop ethernet port", DP_LOG_PORT(port), DP_LOG_RET(ret));
 
 	// TODO THIS CANNOT BE THERE!
-	ret = rte_eth_dev_close(port->port_id);
-	if (DP_FAILED(ret))
-		DPS_LOG_ERR("Cannot close ethernet port", DP_LOG_PORT(port), DP_LOG_RET(ret));
+	// ret = rte_eth_dev_close(port->port_id);
+	// if (DP_FAILED(ret))
+	// 	DPS_LOG_ERR("Cannot close ethernet port", DP_LOG_PORT(port), DP_LOG_RET(ret));
 
 	return ret;
 }
