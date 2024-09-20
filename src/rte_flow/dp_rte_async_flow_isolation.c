@@ -143,19 +143,18 @@ int dp_create_pf_async_proxy_templates(struct dp_port *port)
 #endif
 
 #ifdef ENABLE_VIRTSVC
-// TODO rename template here too!
 int dp_create_virtsvc_async_isolation_templates(struct dp_port *port, uint8_t proto_id)
 {
-	struct dp_port_async_template *template;
+	struct dp_port_async_template *tmpl;
 
-	template = dp_alloc_async_template(DP_ISOLATION_PATTERN_COUNT, DP_ISOLATION_ACTIONS_COUNT);
-	if (!template)
+	tmpl = dp_alloc_async_template(DP_ISOLATION_PATTERN_COUNT, DP_ISOLATION_ACTIONS_COUNT);
+	if (!tmpl)
 		return DP_ERROR;
 
 	if (proto_id == IPPROTO_TCP)
-		port->default_async_rules.default_templates[DP_PORT_ASYNC_TEMPLATE_VIRTSVC_TCP_ISOLATION] = template;
+		port->default_async_rules.default_templates[DP_PORT_ASYNC_TEMPLATE_VIRTSVC_TCP_ISOLATION] = tmpl;
 	else
-		port->default_async_rules.default_templates[DP_PORT_ASYNC_TEMPLATE_VIRTSVC_UDP_ISOLATION] = template;
+		port->default_async_rules.default_templates[DP_PORT_ASYNC_TEMPLATE_VIRTSVC_UDP_ISOLATION] = tmpl;
 
 	const struct rte_flow_item tcp_src_pattern[] = {
 		{	.type = RTE_FLOW_ITEM_TYPE_ETH,
@@ -169,19 +168,19 @@ int dp_create_virtsvc_async_isolation_templates(struct dp_port *port, uint8_t pr
 		},
 		{	.type = RTE_FLOW_ITEM_TYPE_END },
 	};
-	template->pattern_templates[DP_ISOLATION_PATTERN_IPV6_PROTO]
+	tmpl->pattern_templates[DP_ISOLATION_PATTERN_IPV6_PROTO]
 		= dp_create_async_pattern_template(port->port_id, &ingress_pattern_template_attr, tcp_src_pattern);
 
 	static const struct rte_flow_action actions[] = {
 		{	.type = RTE_FLOW_ACTION_TYPE_QUEUE, },
 		{	.type = RTE_FLOW_ACTION_TYPE_END, },
 	};
-	template->actions_templates[DP_ISOLATION_ACTIONS_QUEUE]
+	tmpl->actions_templates[DP_ISOLATION_ACTIONS_QUEUE]
 		= dp_create_async_actions_template(port->port_id, &ingress_actions_template_attr, actions, actions);
 
-	template->table_attr = &pf_ingress_template_table_attr;
+	tmpl->table_attr = &pf_ingress_template_table_attr;
 
-	return dp_init_async_template(port->port_id, template);
+	return dp_init_async_template(port->port_id, tmpl);
 }
 #endif
 
