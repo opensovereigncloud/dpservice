@@ -212,10 +212,9 @@ function get_ipv6() {
 }
 
 
-function get_pf_mac() {
+function get_pf1_proxy_interface() {
 	local pci_dev=${devs[$1]}
-	local pf=$(get_ifname $1)
-	cat /sys/bus/pci/devices/$pci_dev/net/$pf/address
+	ls /sys/bus/pci/devices/$pci_dev/net/ | grep 'f1r0' | xargs echo -n
 }
 
 function make_config() {
@@ -233,7 +232,7 @@ function make_config() {
 	if [[ "$OPT_MULTIPORT" == "true" ]]; then
 		echo "a-pf0 ${devs[0]},class=rxq_cqe_comp_en=0,rx_vec_en=1,dv_flow_en=2,dv_esw_en=1,fdb_def_rule_en=1,representor=pf[0-1]vf[0-$[$actualvfs-1]]"
 		if [[ "$OPT_PF1_PROXY" == "true" ]]; then
-			echo "pf1-proxy $(get_pf_mac 1)"
+			echo "pf1-proxy $(get_pf1_proxy_interface 1)"
 		fi
 		echo "multiport-eswitch"
 	else
