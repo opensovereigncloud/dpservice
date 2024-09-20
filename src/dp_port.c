@@ -164,7 +164,8 @@ static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *de
 	}
 
 	/* dp-service specific config */
-	if (!port->is_pf) {
+	// TODO this needs more investigation as to why it's a problem in OSC
+	if (!dp_conf_is_multiport_eswitch() && !port->is_pf) {
 		DPS_LOG_INFO("INIT setting port to promiscuous mode", DP_LOG_PORT(port));
 		ret = rte_eth_promiscuous_enable(port->port_id);
 		if (DP_FAILED(ret)) {
