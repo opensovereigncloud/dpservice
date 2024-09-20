@@ -39,11 +39,6 @@ static struct dp_conf_virtual_services virtual_services = {0};
 #endif
 
 // TODO #ifdef ENABLE_PF1_PROXY
-static char dp_conf_pf1_proxy_ipv6[DP_EAL_A_MAXLEN] = {0};
-const char *dp_conf_get_pf1_proxy_ipv6(void)
-{
-	return dp_conf_pf1_proxy_ipv6;
-}
 static char dp_conf_pf1_proxy[IF_NAMESIZE] = {0};
 
 const char *dp_conf_get_pf1_proxy(void)
@@ -295,8 +290,6 @@ static int parse_line(char *line, int lineno)
 	if (!strcmp(key, "pf1-proxy"))
 		return dp_argparse_string(value, dp_conf_pf1_proxy, sizeof(dp_conf_pf1_proxy));
 // TODO #endif
-	if (!strcmp(key, "pf1-proxy-ipv6"))
-		return dp_argparse_string(value, dp_conf_pf1_proxy_ipv6, sizeof(dp_conf_pf1_proxy_ipv6));
 
 	// Otherwise support all long options
 	if (!longopt) {

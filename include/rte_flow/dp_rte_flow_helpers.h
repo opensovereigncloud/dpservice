@@ -71,6 +71,10 @@ static const struct rte_flow_item_ipv6 dp_flow_item_ipv6_dst_mask = {
 	.hdr.dst_addr = "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
 	.hdr.proto = 0xff,
 };
+static const struct rte_flow_item_ipv6 dp_flow_item_ipv6_dst_mask_dyn = {
+	.hdr.dst_addr = "\xff\xff\xff\xff\xff\xff\xff\xff\x0\x0\x0\x0\x0\x0\x0\x0",
+	.hdr.proto = 0xff,
+};
 
 static const struct rte_flow_item_ipv4 dp_flow_item_ipv4_dst_mask = {
 	.hdr.dst_addr = 0xffffffff,

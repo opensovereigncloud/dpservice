@@ -12,6 +12,7 @@
 #include "rte_flow/dp_rte_flow_helpers.h"
 
 #define DP_ISOLATION_DEFAULT_TABLE_MAX_RULES 8
+#define DP_LINK_LOCAL_IP "fe80::"
 
 enum dp_isolation_pattern_type {
 	DP_ISOLATION_PATTERN_IPV6_PROTO,
@@ -129,6 +130,43 @@ int dp_create_pf_async_proxy_templates_dst(struct dp_port *port)
 		},
 		{	.type = RTE_FLOW_ITEM_TYPE_IPV6,
 			.mask = &dp_flow_item_ipv6_dst_mask,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_END },
+	};
+	tmpl->pattern_templates[DP_PF1_PROXY_PATTERN_REPR_PORT]
+		= dp_create_async_pattern_template(port->port_id, &transfer_pattern_template_attr, pattern);
+
+	static const struct rte_flow_action actions[] = {
+		{	.type = RTE_FLOW_ACTION_TYPE_REPRESENTED_PORT, },
+		{	.type = RTE_FLOW_ACTION_TYPE_END, },
+	};
+	tmpl->actions_templates[DP_PF1_PROXY_ACTIONS_REPR_PORT]
+		= dp_create_async_actions_template(port->port_id, &transfer_actions_template_attr, actions, actions);
+
+	tmpl->table_attr = &pf_transfer_template_table_attr;
+
+	return dp_init_async_template(port->port_id, tmpl);
+}
+
+int dp_create_pf_async_proxy_templates_dst_dyn(struct dp_port *port)
+{
+	struct dp_port_async_template *tmpl;
+
+	tmpl = dp_alloc_async_template(DP_PF1_PROXY_PATTERN_COUNT, DP_PF1_PROXY_ACTIONS_COUNT);
+	if (!tmpl)
+		return DP_ERROR;
+
+	port->default_async_rules.default_templates[DP_PORT_ASYNC_TEMPLATE_PF1_PROXY_DST_DYN] = tmpl;
+
+	static const struct rte_flow_item pattern[] = {
+		{	.type = RTE_FLOW_ITEM_TYPE_REPRESENTED_PORT,
+			.mask = &dp_flow_item_ethdev_mask,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_ETH,
+			.mask = &dp_flow_item_eth_mask,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_IPV6,
+			.mask = &dp_flow_item_ipv6_dst_mask_dyn,
 		},
 		{	.type = RTE_FLOW_ITEM_TYPE_END },
 	};
@@ -271,7 +309,50 @@ static struct rte_flow *dp_create_pf_async_proxy_rule_dst(uint16_t port_id, uint
 		.hdr.ether_type = htons(RTE_ETHER_TYPE_IPV6),
 	};
 
-	DPS_LOG_INFO("dp_create_pf_async_proxy_rule dst_addr:", DP_LOG_IPV6(*dst_ipv6));
+	DPS_LOG_INFO("dp_create_pf_async_proxy_rule_dst dst_addr:", DP_LOG_IPV6(*dst_ipv6));
+
+	const struct rte_flow_item_ipv6 ipv6_spec = {
+		.hdr.proto = proto_id,
+		.hdr.dst_addr = DP_INIT_FROM_IPV6(dst_ipv6),
+	};
+	const struct rte_flow_item pattern[] = {
+		{	.type = RTE_FLOW_ITEM_TYPE_REPRESENTED_PORT,
+			.spec = &src_port_pattern,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_ETH,
+			.spec = &eth_spec,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_IPV6,
+			.spec = &ipv6_spec,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_END },
+	};
+
+	const struct rte_flow_item_ethdev dst_port_action = {
+		.port_id = dst_port_id,
+	};
+	const struct rte_flow_action actions[] = {
+		{	.type = RTE_FLOW_ACTION_TYPE_REPRESENTED_PORT,
+			.conf = &dst_port_action,
+		},
+		{	.type = RTE_FLOW_ACTION_TYPE_END },
+	};
+
+	return dp_create_async_rule(port_id, template_table,
+								pattern, DP_PF1_PROXY_PATTERN_REPR_PORT,
+								actions, DP_PF1_PROXY_ACTIONS_REPR_PORT);
+}
+
+static struct rte_flow *dp_create_pf_async_proxy_rule_dst_dyn(uint16_t port_id, uint16_t src_port_id, uint16_t dst_port_id, uint8_t proto_id, const union dp_ipv6 *dst_ipv6, struct rte_flow_template_table *template_table)
+{
+	const struct rte_flow_item_ethdev src_port_pattern = {
+		.port_id = src_port_id,
+	};
+	const struct rte_flow_item_eth eth_spec = {
+		.hdr.ether_type = htons(RTE_ETHER_TYPE_IPV6),
+	};
+
+	DPS_LOG_INFO("dp_create_pf_async_proxy_rule_dst_dyn dst_addr:", DP_LOG_IPV6(*dst_ipv6));
 
 	const struct rte_flow_item_ipv6 ipv6_spec = {
 		.hdr.proto = proto_id,
@@ -423,7 +504,7 @@ int dp_create_pf_async_isolation_rules(struct dp_port *port)
 
 // TODO #ifdef ENABLE_PF1_PROXY
 	if (port == dp_get_pf0()) {
-		rules_required += 4;
+		rules_required += 8;
 		// TODO maybe another function like virstvc uses (that returns the number above)
 
 		uint16_t pf1_port_id = dp_get_pf1()->port_id;
@@ -476,54 +557,58 @@ int dp_create_pf_async_isolation_rules(struct dp_port *port)
 			rule_count++;
 		}
 
-		static const char *pf1_proxy_ipv6_str;
-		pf1_proxy_ipv6_str = dp_conf_get_pf1_proxy_ipv6();
-
-		static union dp_ipv6 pf1_proxy_ipv6 = {0};
-		if (DP_FAILED(dp_str_to_ipv6(pf1_proxy_ipv6_str, &pf1_proxy_ipv6))) {
-			DP_EARLY_ERR("Invalid IPv6 address format: '%s'", pf1_proxy_ipv6_str);
-			return DP_ERROR;
-		}
-
 		// Get the underlay IP
 		static const union dp_ipv6 *ul_ip;
 		ul_ip = dp_conf_get_underlay_ip();
 
-		// Create an array of pointers to the IPv6 addresses
-		const union dp_ipv6 *ipv6_array[] = { &pf1_proxy_ipv6, ul_ip };
+		printf("FLOW TCP %u -> %u (underlay ip)\n", pf1_port_id, proxy_port_id);
+		flow = dp_create_pf_async_proxy_rule_dst(port->port_id, pf1_port_id, proxy_port_id, IPPROTO_TCP, ul_ip,
+											 templates[DP_PORT_ASYNC_TEMPLATE_PF1_PROXY_DST]->template_table);
+		if (!flow) {
+			DPS_LOG_ERR("Failed to install PF async pf1 to proxy rule", DP_LOG_PORT(port));
+			return DP_ERROR;
+		} else {
+			//port->default_async_rules.default_flows[DP_PORT_ASYNC_FLOW_PF1_TO_PROXY] = flow;
+			rule_count++;
+		}
 
-		// Calculate the length of the array
-		size_t array_len = sizeof(ipv6_array) / sizeof(ipv6_array[0]);
+		printf("FLOW UDP %u -> %u (underlay ip)\n", pf1_port_id, proxy_port_id);
+		flow = dp_create_pf_async_proxy_rule_dst(port->port_id, pf1_port_id, proxy_port_id, IPPROTO_UDP, ul_ip,
+											 templates[DP_PORT_ASYNC_TEMPLATE_PF1_PROXY_DST]->template_table);
+		if (!flow) {
+			DPS_LOG_ERR("Failed to install PF async pf1 to proxy rule", DP_LOG_PORT(port));
+			return DP_ERROR;
+		} else {
+			//port->default_async_rules.default_flows[DP_PORT_ASYNC_FLOW_PF1_TO_PROXY] = flow;
+			rule_count++;
+		}
 
-		// Loop over the array and print the IPv6 addresses
-		for (size_t i = 0; i < array_len; i++) {
-			rules_required += 2;
-			DPS_LOG_INFO("Rule for IPv6 address", DP_LOG_IPV6(*ipv6_array[i]));
-			static const union dp_ipv6 *ipv6;
-			ipv6 = ipv6_array[i];
+		static union dp_ipv6 link_local_ip;
+		if (DP_FAILED(dp_str_to_ipv6(DP_LINK_LOCAL_IP, &link_local_ip))) {
+			DP_EARLY_ERR("Invalid IPv6 address format: '%s'", DP_LINK_LOCAL_IP);
+			return DP_ERROR;
+		}
 
-			printf("FLOW TCP %u -> %u\n", pf1_port_id, proxy_port_id);
-			flow = dp_create_pf_async_proxy_rule_dst(port->port_id, pf1_port_id, proxy_port_id, IPPROTO_TCP, ipv6,
-												 templates[DP_PORT_ASYNC_TEMPLATE_PF1_PROXY_DST]->template_table);
-			if (!flow) {
-				DPS_LOG_ERR("Failed to install PF async pf1 to proxy rule", DP_LOG_PORT(port));
-				return DP_ERROR;
-			} else {
-				//port->default_async_rules.default_flows[DP_PORT_ASYNC_FLOW_PF1_TO_PROXY] = flow;
-				rule_count++;
-			}
+		printf("FLOW TCP %u -> %u (link local)\n", pf1_port_id, proxy_port_id);
+		flow = dp_create_pf_async_proxy_rule_dst_dyn(port->port_id, pf1_port_id, proxy_port_id, IPPROTO_TCP, &link_local_ip,
+											 templates[DP_PORT_ASYNC_TEMPLATE_PF1_PROXY_DST_DYN]->template_table);
+		if (!flow) {
+			DPS_LOG_ERR("Failed to install PF async pf1 to proxy rule", DP_LOG_PORT(port));
+			return DP_ERROR;
+		} else {
+			//port->default_async_rules.default_flows[DP_PORT_ASYNC_FLOW_PF1_TO_PROXY] = flow;
+			rule_count++;
+		}
 
-			printf("FLOW UDP %u -> %u\n", pf1_port_id, proxy_port_id);
-			flow = dp_create_pf_async_proxy_rule_dst(port->port_id, pf1_port_id, proxy_port_id, IPPROTO_UDP, ipv6,
-												 templates[DP_PORT_ASYNC_TEMPLATE_PF1_PROXY_DST]->template_table);
-			if (!flow) {
-				DPS_LOG_ERR("Failed to install PF async pf1 to proxy rule", DP_LOG_PORT(port));
-				return DP_ERROR;
-			} else {
-				//port->default_async_rules.default_flows[DP_PORT_ASYNC_FLOW_PF1_TO_PROXY] = flow;
-				rule_count++;
-			}
-
+		printf("FLOW UDP %u -> %u (link local)\n", pf1_port_id, proxy_port_id);
+		flow = dp_create_pf_async_proxy_rule_dst_dyn(port->port_id, pf1_port_id, proxy_port_id, IPPROTO_UDP, &link_local_ip,
+											 templates[DP_PORT_ASYNC_TEMPLATE_PF1_PROXY_DST_DYN]->template_table);
+		if (!flow) {
+			DPS_LOG_ERR("Failed to install PF async pf1 to proxy rule", DP_LOG_PORT(port));
+			return DP_ERROR;
+		} else {
+			//port->default_async_rules.default_flows[DP_PORT_ASYNC_FLOW_PF1_TO_PROXY] = flow;
+			rule_count++;
 		}
 	}
 // TODO #endif
