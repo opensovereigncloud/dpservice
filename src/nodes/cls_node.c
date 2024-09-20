@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
+#include "nodes/cls_node.h"
 #include <rte_common.h>
 #include <rte_ethdev.h>
 #include <rte_graph.h>
@@ -23,34 +24,43 @@
 #	define VIRTSVC_NEXT(NEXT)
 #endif
 
-#ifdef ENABLE_PF1_PROXY
-#define PF1_NEXT(NEXT) NEXT(CLS_NEXT_PF1, "pf1")
-#define PF1_PROXY_NEXT(NEXT) NEXT(CLS_NEXT_PF1_PROXY, "pf1_proxy")
-#else
-#define PF1_NEXT(NEXT)
-#define PF1_PROXY_NEXT(NEXT)
-#endif
-
 #define NEXT_NODES(NEXT) \
 	NEXT(CLS_NEXT_ARP, "arp") \
 	NEXT(CLS_NEXT_IPV6_ND, "ipv6_nd") \
 	NEXT(CLS_NEXT_CONNTRACK, "conntrack") \
 	NEXT(CLS_NEXT_IPIP_DECAP, "ipip_decap") \
-	PF1_NEXT(NEXT) \
-	PF1_PROXY_NEXT(NEXT) \
 	VIRTSVC_NEXT(NEXT)
 
-#ifdef ENABLE_VIRTSVC
 DP_NODE_REGISTER(CLS, cls, NEXT_NODES);
+
+#ifdef ENABLE_PF1_PROXY
+static bool pf1_proxy_enabled = false;
+static uint16_t pf1_port_id;
+static uint16_t pf1_proxy_port_id;
+#endif
+
 static int cls_node_init(__rte_unused const struct rte_graph *graph, __rte_unused struct rte_node *node)
 {
+#ifdef ENABLE_PF1_PROXY
+	pf1_proxy_enabled = dp_conf_is_pf1_proxy_enabled();
+	pf1_port_id = dp_get_pf1()->port_id;
+	pf1_proxy_port_id = dp_get_pf1_proxy()->port_id;
+#endif
+#ifdef ENABLE_VIRTSVC
 	virtsvc_present = dp_virtsvc_get_count() > 0;
 	virtsvc_ipv4_tree = dp_virtsvc_get_ipv4_tree();
 	virtsvc_ipv6_tree = dp_virtsvc_get_ipv6_tree();
+#endif
 	return DP_OK;
 }
-#else
-DP_NODE_REGISTER_NOINIT(CLS, cls, NEXT_NODES);
+
+#ifdef ENABLE_PF1_PROXY
+static uint16_t next_tx_index[DP_MAX_PORTS];
+
+int cls_node_append_tx(uint16_t port_id, const char *tx_node_name)
+{
+	return dp_node_append_tx(DP_NODE_GET_SELF(cls), next_tx_index, port_id, tx_node_name);
+}
 #endif
 
 static __rte_always_inline int is_arp(const struct rte_ether_hdr *ether_hdr)
@@ -221,20 +231,19 @@ static __rte_always_inline rte_edge_t get_next_index_proxy(__rte_unused struct r
 {
 	rte_edge_t next;
 
-	if (!dp_conf_is_pf1_proxy_enabled())
+	if (!pf1_proxy_enabled)
 		return get_next_index(node, m);
 
-	if (m->port == dp_get_pf1_proxy()->port_id)  // TODO init
-		return CLS_NEXT_PF1;
+	if (m->port == pf1_proxy_port_id)
+		return next_tx_index[pf1_port_id];
 
 	next = get_next_index(node, m);
-	if (unlikely(next == CLS_NEXT_DROP && m->port == dp_get_pf1()->port_id))  // TODO init
-		return CLS_NEXT_PF1_PROXY;
+	if (unlikely(next == CLS_NEXT_DROP && m->port == pf1_port_id))
+		return next_tx_index[pf1_proxy_port_id];
 
 	return next;
 }
-#else
-#define get_next_index_proxy get_next_index
+#define get_next_index get_next_index_proxy
 #endif
 
 static uint16_t cls_node_process(struct rte_graph *graph,
@@ -242,6 +251,6 @@ static uint16_t cls_node_process(struct rte_graph *graph,
 								 void **objs,
 								 uint16_t nb_objs)
 {
-	dp_foreach_graph_packet(graph, node, objs, nb_objs, CLS_NEXT_CONNTRACK, get_next_index_proxy);
+	dp_foreach_graph_packet(graph, node, objs, nb_objs, CLS_NEXT_CONNTRACK, get_next_index);
 	return nb_objs;
 }
