@@ -294,7 +294,6 @@ struct rte_flow *dp_create_virtsvc_async_isolation_rule(uint16_t port_id, uint8_
 }
 #endif
 
-// TODO think about renaming now that there is the PF proxy...
 int dp_create_pf_async_isolation_rules(struct dp_port *port)
 {
 	struct rte_flow *flow;
@@ -323,6 +322,7 @@ int dp_create_pf_async_isolation_rules(struct dp_port *port)
 	}
 
 #ifdef ENABLE_PF1_PROXY
+goto _skip;
 	if (port == dp_get_pf0()) {
 		rules_required += 2;
 		// TODO maybe another function like virstvc uses (that returns the number above)
@@ -355,6 +355,7 @@ printf("FLOW %u -> %u\n", proxy_port_id, pf1_port_id);
 			rule_count++;
 		}
 	}
+_skip:
 #endif
 
 #ifdef ENABLE_VIRTSVC
