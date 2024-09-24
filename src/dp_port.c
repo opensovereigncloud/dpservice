@@ -559,7 +559,10 @@ static int dp_port_create_default_pf_async_templates(struct dp_port *port)
 		return DP_ERROR;
 	}
 #ifdef ENABLE_PF1_PROXY
-	if (port == dp_get_pf0() && DP_FAILED(dp_create_pf_async_proxy_templates(port))) {
+	if (port == dp_get_pf0()
+		&& (DP_FAILED(dp_create_pf_async_from_proxy_templates(port))
+			|| DP_FAILED(dp_create_pf_async_to_proxy_templates(port)))
+	) {
 		DPS_LOG_ERR("Failed to create pf async proxy templates", DP_LOG_PORT(port));
 		return DP_ERROR;
 	}

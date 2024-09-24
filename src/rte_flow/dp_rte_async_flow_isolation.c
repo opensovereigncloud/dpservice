@@ -110,7 +110,7 @@ int dp_create_pf_async_isolation_templates(struct dp_port *port)
 }
 
 #ifdef ENABLE_PF1_PROXY
-int dp_create_pf_async_proxy_templates(struct dp_port *port)
+int dp_create_pf_async_from_proxy_templates(struct dp_port *port)
 {
 	struct dp_port_async_template *tmpl;
 
@@ -118,12 +118,51 @@ int dp_create_pf_async_proxy_templates(struct dp_port *port)
 	if (!tmpl)
 		return DP_ERROR;
 
-	port->default_async_rules.default_templates[DP_PORT_ASYNC_TEMPLATE_PF1_PROXY] = tmpl;
+	port->default_async_rules.default_templates[DP_PORT_ASYNC_TEMPLATE_PF1_FROM_PROXY] = tmpl;
 
 	static const struct rte_flow_item pattern[] = {
 		{	.type = RTE_FLOW_ITEM_TYPE_REPRESENTED_PORT,
 			.mask = &dp_flow_item_ethdev_mask,
 		},
+		{	.type = RTE_FLOW_ITEM_TYPE_END },
+	};
+	tmpl->pattern_templates[DP_PF1_PROXY_PATTERN_REPR_PORT]
+		= dp_create_async_pattern_template(port->port_id, &transfer_pattern_template_attr, pattern);
+
+	static const struct rte_flow_action actions[] = {
+		{	.type = RTE_FLOW_ACTION_TYPE_REPRESENTED_PORT, },
+		{	.type = RTE_FLOW_ACTION_TYPE_END, },
+	};
+	tmpl->actions_templates[DP_PF1_PROXY_ACTIONS_REPR_PORT]
+		= dp_create_async_actions_template(port->port_id, &transfer_actions_template_attr, actions, actions);
+
+	tmpl->table_attr = &pf_transfer_template_table_attr;
+
+	return dp_init_async_template(port->port_id, tmpl);
+}
+
+int dp_create_pf_async_to_proxy_templates(struct dp_port *port)
+{
+	struct dp_port_async_template *tmpl;
+
+	tmpl = dp_alloc_async_template(DP_PF1_PROXY_PATTERN_COUNT, DP_PF1_PROXY_ACTIONS_COUNT);
+	if (!tmpl)
+		return DP_ERROR;
+
+	port->default_async_rules.default_templates[DP_PORT_ASYNC_TEMPLATE_PF1_TO_PROXY] = tmpl;
+
+	static const struct rte_flow_item pattern[] = {
+		{	.type = RTE_FLOW_ITEM_TYPE_REPRESENTED_PORT,
+			.mask = &dp_flow_item_ethdev_mask,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_ETH,
+			.mask = &dp_flow_item_eth_mask,
+		},
+#ifdef ENABLE_VIRTSVC
+		{	.type = RTE_FLOW_ITEM_TYPE_IPV6,
+			.mask = &dp_flow_item_ipv6_dst_only_mask,
+		},
+#endif
 		{	.type = RTE_FLOW_ITEM_TYPE_END },
 	};
 	tmpl->pattern_templates[DP_PF1_PROXY_PATTERN_REPR_PORT]
@@ -219,7 +258,7 @@ static struct rte_flow *dp_create_pf_async_isolation_rule(uint16_t port_id, uint
 }
 
 #ifdef ENABLE_PF1_PROXY
-static struct rte_flow *dp_create_pf_async_proxy_rule(uint16_t port_id, uint16_t src_port_id, uint16_t dst_port_id, struct rte_flow_template_table *template_table)
+static struct rte_flow *dp_create_pf_async_from_proxy_rule(uint16_t port_id, uint16_t src_port_id, uint16_t dst_port_id, struct rte_flow_template_table *template_table)
 {
 	const struct rte_flow_item_ethdev src_port_pattern = {
 		.port_id = src_port_id,
@@ -228,6 +267,55 @@ static struct rte_flow *dp_create_pf_async_proxy_rule(uint16_t port_id, uint16_t
 		{	.type = RTE_FLOW_ITEM_TYPE_REPRESENTED_PORT,
 			.spec = &src_port_pattern,
 		},
+		{	.type = RTE_FLOW_ITEM_TYPE_END },
+	};
+
+	const struct rte_flow_item_ethdev dst_port_action = {
+		.port_id = dst_port_id,
+	};
+	const struct rte_flow_action actions[] = {
+		{	.type = RTE_FLOW_ACTION_TYPE_REPRESENTED_PORT,
+			.conf = &dst_port_action,
+		},
+		{	.type = RTE_FLOW_ACTION_TYPE_END },
+	};
+
+	return dp_create_async_rule(port_id, template_table,
+								pattern, DP_PF1_PROXY_PATTERN_REPR_PORT,
+								actions, DP_PF1_PROXY_ACTIONS_REPR_PORT);
+}
+
+static struct rte_flow *dp_create_pf_async_to_proxy_rule(uint16_t port_id, uint16_t src_port_id, uint16_t dst_port_id, struct rte_flow_template_table *template_table)
+{
+	const struct rte_flow_item_ethdev src_port_pattern = {
+		.port_id = src_port_id,
+	};
+	const struct rte_flow_item_eth eth_ipv6_pattern = {
+		.type = htons(RTE_ETHER_TYPE_IPV6),
+	};
+#ifdef ENABLE_VIRTSVC
+	// TODO just for testing
+// 	union dp_ipv6 plg_ipv6 = *dp_conf_get_underlay_ip();
+// 	plg_ipv6._prefix = 0x01fc;
+// 	const struct rte_flow_item_ipv6 ipv6_dst_pattern = {
+// 		.hdr.dst_addr = DP_INIT_FROM_IPV6(&plg_ipv6),
+// 	};
+	const struct rte_flow_item_ipv6 ipv6_dst_pattern = {
+		.hdr.dst_addr = DP_INIT_FROM_IPV6(dp_conf_get_underlay_ip()),
+	};
+#endif
+	const struct rte_flow_item pattern[] = {
+		{	.type = RTE_FLOW_ITEM_TYPE_REPRESENTED_PORT,
+			.spec = &src_port_pattern,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_ETH,
+			.spec = &eth_ipv6_pattern,
+		},
+#ifdef ENABLE_VIRTSVC
+		{	.type = RTE_FLOW_ITEM_TYPE_IPV6,
+			.spec = &ipv6_dst_pattern,
+		},
+#endif
 		{	.type = RTE_FLOW_ITEM_TYPE_END },
 	};
 
@@ -322,7 +410,6 @@ int dp_create_pf_async_isolation_rules(struct dp_port *port)
 	}
 
 #ifdef ENABLE_PF1_PROXY
-goto _skip;
 	if (port == dp_get_pf0()) {
 		rules_required += 2;
 		// TODO maybe another function like virstvc uses (that returns the number above)
@@ -332,21 +419,9 @@ goto _skip;
 
 		DPS_LOG_INFO("Selecting a port for PF1 proxy", DP_LOG_PORTID(proxy_port_id));
 
-		// TODO there is now too much code replication, think on some wrapper/better API
-printf("FLOW %u -> %u\n", pf1_port_id, proxy_port_id);
-		flow = dp_create_pf_async_proxy_rule(port->port_id, pf1_port_id, proxy_port_id,
-											 templates[DP_PORT_ASYNC_TEMPLATE_PF1_PROXY]->template_table);
-		if (!flow) {
-			DPS_LOG_ERR("Failed to install PF async pf1 to proxy rule", DP_LOG_PORT(port));
-			return DP_ERROR;
-		} else {
-			port->default_async_rules.default_flows[DP_PORT_ASYNC_FLOW_PF1_TO_PROXY] = flow;
-			rule_count++;
-		}
-
 printf("FLOW %u -> %u\n", proxy_port_id, pf1_port_id);
-		flow = dp_create_pf_async_proxy_rule(port->port_id, proxy_port_id, pf1_port_id,
-											 templates[DP_PORT_ASYNC_TEMPLATE_PF1_PROXY]->template_table);
+		flow = dp_create_pf_async_from_proxy_rule(port->port_id, proxy_port_id, pf1_port_id,
+											 templates[DP_PORT_ASYNC_TEMPLATE_PF1_FROM_PROXY]->template_table);
 		if (!flow) {
 			DPS_LOG_ERR("Failed to install PF async pf1 from proxy rule", DP_LOG_PORT(port));
 			return DP_ERROR;
@@ -354,8 +429,19 @@ printf("FLOW %u -> %u\n", proxy_port_id, pf1_port_id);
 			port->default_async_rules.default_flows[DP_PORT_ASYNC_FLOW_PF1_FROM_PROXY] = flow;
 			rule_count++;
 		}
+
+		// TODO there is now too much code replication, think on some wrapper/better API
+printf("FLOW %u -> %u\n", pf1_port_id, proxy_port_id);
+		flow = dp_create_pf_async_to_proxy_rule(port->port_id, pf1_port_id, proxy_port_id,
+											 templates[DP_PORT_ASYNC_TEMPLATE_PF1_TO_PROXY]->template_table);
+		if (!flow) {
+			DPS_LOG_ERR("Failed to install PF async pf1 to proxy rule", DP_LOG_PORT(port));
+			return DP_ERROR;
+		} else {
+			port->default_async_rules.default_flows[DP_PORT_ASYNC_FLOW_PF1_TO_PROXY] = flow;
+			rule_count++;
+		}
 	}
-_skip:
 #endif
 
 #ifdef ENABLE_VIRTSVC

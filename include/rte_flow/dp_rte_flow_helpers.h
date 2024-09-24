@@ -66,6 +66,13 @@ static const struct rte_flow_item_ipv6 dp_flow_item_ipv6_dst_mask = {
 	.hdr.dst_addr = "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
 	.hdr.proto = 0xff,
 };
+#ifdef ENABLE_PF1_PROXY
+#ifdef ENABLE_VIRTSVC
+static const struct rte_flow_item_ipv6 dp_flow_item_ipv6_dst_only_mask = {
+	.hdr.dst_addr = "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+};
+#endif
+#endif
 
 static const struct rte_flow_item_ipv4 dp_flow_item_ipv4_dst_mask = {
 	.hdr.dst_addr = 0xffffffff,
