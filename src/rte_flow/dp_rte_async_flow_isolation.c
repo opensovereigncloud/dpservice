@@ -124,6 +124,12 @@ int dp_create_pf_async_proxy_templates(struct dp_port *port)
 		{	.type = RTE_FLOW_ITEM_TYPE_REPRESENTED_PORT,
 			.mask = &dp_flow_item_ethdev_mask,
 		},
+		{	.type = RTE_FLOW_ITEM_TYPE_ETH,
+			.mask = &dp_flow_item_eth_mask,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_IPV6,
+			.mask = &dp_flow_item_ipv6_mask,
+		},
 		{	.type = RTE_FLOW_ITEM_TYPE_END },
 	};
 	tmpl->pattern_templates[DP_PF1_PROXY_PATTERN_REPR_PORT]
@@ -224,9 +230,21 @@ static struct rte_flow *dp_create_pf_async_proxy_rule(uint16_t port_id, uint16_t
 	const struct rte_flow_item_ethdev src_port_pattern = {
 		.port_id = src_port_id,
 	};
+	const struct rte_flow_item_eth eth_spec = {
+		.hdr.ether_type = htons(RTE_ETHER_TYPE_IPV6),
+	};
+	const struct rte_flow_item_ipv6 ipv6_spec = {
+		.hdr.proto = IPPROTO_TCP,
+	};
 	const struct rte_flow_item pattern[] = {
 		{	.type = RTE_FLOW_ITEM_TYPE_REPRESENTED_PORT,
 			.spec = &src_port_pattern,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_ETH,
+			.spec = &eth_spec,
+		},
+		{	.type = RTE_FLOW_ITEM_TYPE_IPV6,
+			.spec = &ipv6_spec,
 		},
 		{	.type = RTE_FLOW_ITEM_TYPE_END },
 	};
@@ -322,7 +340,6 @@ int dp_create_pf_async_isolation_rules(struct dp_port *port)
 	}
 
 #ifdef ENABLE_PF1_PROXY
-goto _skip;
 	if (port == dp_get_pf0()) {
 		rules_required += 2;
 		// TODO maybe another function like virstvc uses (that returns the number above)
@@ -355,7 +372,6 @@ printf("FLOW %u -> %u\n", proxy_port_id, pf1_port_id);
 			rule_count++;
 		}
 	}
-_skip:
 #endif
 
 #ifdef ENABLE_VIRTSVC

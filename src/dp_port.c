@@ -265,11 +265,6 @@ static struct dp_port *dp_port_init_interface(uint16_t port_id, struct rte_eth_d
 	_dp_port_table[port_id] = port;
 
 	promiscuous = !port->is_pf;
-#ifdef ENABLE_PF1_PROXY
-	// TODO this needs more investigation as to why it's a problem in OSC
-	if (dp_conf_is_pf1_proxy_enabled())
-		promiscuous = false;
-#endif
 	if (DP_FAILED(dp_port_init_ethdev(port, dev_info, promiscuous)))
 		return NULL;
 
