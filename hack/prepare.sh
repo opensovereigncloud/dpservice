@@ -189,11 +189,22 @@ function get_pattern() {
 	local dev=$1
 	pattern=$(devlink port | grep pci/$dev/ | grep "virtual\|pcivf" | awk '{print $5}' | sed -rn 's/(.*[a-z_])[0-9]{1,3}$/\1/p' | uniq)
 	if [ -z "$pattern" ]; then
-		err "can't determine the pattern for $dev"
+		err "can't determine the vf pattern for $dev"
 	elif [ $(wc -l <<< "$pattern") -ne 1 ]; then
-		err "multiple patterns found for $dev"
+		err "multiple vf patterns found for $dev"
 	fi
 	echo "$pattern"
+}
+
+function get_pf1_proxy() {
+	local dev=$1
+	proxy=$(devlink port | grep pci/$dev/ | grep "virtual\|pcivf" | awk '{print $5}' | uniq)
+	if [ -z "$proxy" ]; then
+		err "can't determine the pf1-proxy vf for $dev"
+	elif [ $(wc -l <<< "$proxy") -ne 1 ]; then
+		err "multiple pf1-proxy devices found for $dev"
+	fi
+	echo "$proxy"
 }
 
 function get_ifname() {
@@ -211,13 +222,6 @@ function get_ipv6() {
 	done < <(ip -6 -o addr show lo | awk '{print $4}')
 }
 
-
-function get_pf_mac() {
-	local pci_dev=${devs[$1]}
-	local pf=$(get_ifname $1)
-	cat /sys/bus/pci/devices/$pci_dev/net/$pf/address
-}
-
 function make_config() {
 	if [[ "$IS_X86_WITH_BLUEFIELD" == "true" ]]; then
 		log "Skipping config file creation on AMD/Intel 64-bit host with Bluefield"
@@ -233,7 +237,7 @@ function make_config() {
 	if [[ "$OPT_MULTIPORT" == "true" ]]; then
 		echo "a-pf0 ${devs[0]},class=rxq_cqe_comp_en=0,rx_vec_en=1,dv_flow_en=2,dv_esw_en=1,fdb_def_rule_en=1,representor=pf[0-1]vf[0-$[$actualvfs-1]]"
 		if [[ "$OPT_PF1_PROXY" == "true" ]]; then
-			echo "pf1-proxy $(get_pf_mac 1)"
+			echo "pf1-proxy $(get_pf1_proxy ${devs[1]})"
 		fi
 		echo "multiport-eswitch"
 	else
