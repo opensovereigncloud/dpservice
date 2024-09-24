@@ -1,5 +1,5 @@
 # Build image with DPDK, etc.
-FROM --platform=${TARGETPLATFORM} debian:12-slim AS builder
+FROM debian:12-slim AS builder
 
 ARG TARGETARCH
 ARG DPDK_VER=23.11
@@ -92,56 +92,6 @@ COPY .git/ .git/
 
 # Compile dpservice itself
 RUN meson setup build -Dbuild_dpservice_cli=true $DPSERVICE_FEATURES && ninja -C build
-
-
-# Extended build image for test-image
-FROM builder AS testbuilder
-ARG DPSERVICE_FEATURES=""
-RUN meson setup release_build $DPSERVICE_FEATURES --buildtype=release && ninja -C release_build
-RUN CC=clang CXX=clang++ meson setup clang_build $DPSERVICE_FEATURES && ninja -C clang_build
-RUN meson setup xtratest_build $DPSERVICE_FEATURES -Denable_tests=true && ninja -C xtratest_build
-
-
-# Test-image to run pytest
-FROM debian:12-slim AS tester
-
-RUN apt-get update && apt-get install -y --no-install-recommends ON \
-libibverbs-dev \
-numactl \
-libnuma1 \
-pciutils \
-procps \
-libuuid1 \
-libgrpc++1.51 \
-libpcap0.8-dev \
-iproute2 \
-udev \
-gawk \
-python3-pytest \
-python3-scapy \
-&& apt-get purge g++-12 ipython3 -y \
-&& apt-get autoremove -y \
-&& apt-get clean -y \
-&& rm -rf /var/lib/apt/lists/*
-# some packages are for some reason part of python3-scapy installation:
-#   g++-12 with 900MB installed size
-#   ipython3 with 264MB installed size
-
-WORKDIR /
-COPY --from=testbuilder /workspace/test ./test
-COPY --from=testbuilder /workspace/build/src/dpservice-bin ./build/src/dpservice-bin
-COPY --from=testbuilder /workspace/build/cli/dpservice-cli/dpservice-cli ./build/cli/dpservice-cli/dpservice-cli
-COPY --from=testbuilder /workspace/build/cli/dpservice-exporter/dpservice-exporter ./build/cli/dpservice-exporter/dpservice-exporter
-COPY --from=testbuilder /workspace/xtratest_build/src/dpservice-bin ./xtratest_build/src/dpservice-bin
-COPY --from=testbuilder /workspace/build/cli/dpservice-cli/dpservice-cli ./xtratest_build/cli/dpservice-cli/dpservice-cli
-COPY --from=testbuilder /workspace/build/cli/dpservice-exporter/dpservice-exporter ./xtratest_build/cli/dpservice-exporter/dpservice-exporter
-COPY --from=testbuilder /usr/local/lib /usr/local/lib
-RUN ldconfig
-
-WORKDIR /test
-ENV PYTHONUNBUFFERED=1
-ENTRYPOINT ["./runtest.py", "../build", "../xtratest_build"]
-
 
 # Deployed pod image itself
 FROM debian:12-slim AS production
