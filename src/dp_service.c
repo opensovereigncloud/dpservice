@@ -167,7 +167,8 @@ static int init_interfaces(void)
 		return DP_ERROR;
 
 #ifdef ENABLE_PF1_PROXY
-	if (DP_FAILED(dp_start_pf1_proxy_port()))
+	if (dp_conf_is_pf1_proxy_enabled()
+		&& DP_FAILED(dp_start_pf1_proxy_port()))
 		return DP_ERROR;
 #endif
 

@@ -486,7 +486,8 @@ void dp_ports_stop(void)
 	struct dp_port *pf0 = dp_get_port_by_pf_index(0);
 
 #ifdef ENABLE_PF1_PROXY
-	dp_stop_eth_port(&_dp_pf1_proxy_port);
+	if (_dp_pf1_proxy_port.allocated)
+		dp_stop_eth_port(&_dp_pf1_proxy_port);
 #endif
 
 	// without stopping started ports, DPDK complains
