@@ -15,8 +15,15 @@ spec:
       tolerations:
       - operator: Exists
       containers:
-      - image: {{ .Values.image.repository }}
+      - name: {{ .Values.dsName }}
+        image: {{ .Values.image.repository }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
-        name: {{ .Values.dsName }}
         command: ["sh", "-c", "tail -f /dev/null"]
         terminationMessagePath: /dev/termination-log
+      - name: nginx
+        image: {{ .Values.nginx.repository }}
+        ports:
+          - name: web
+            containerPort: {{ .Values.nginx.port }}
+            hostPort: {{ .Values.nginx.port }}
+            protocol: {{ .Values.nginx.protocol }}

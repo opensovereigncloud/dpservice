@@ -30,16 +30,15 @@ import (
 
 const (
 	dsName = "overlaytest"
-	port   = 16909
+	// port of nginx-container for curl tests
+	curlPort = 80
 )
 
 var (
-	retries                 int
 	ping, curl, verbose     bool
 	fromAZ, toAZ, namespace string
 )
 
-// TODO: add id for rerun possibility
 type testCase struct {
 	Id     uint16 `json:"id"`
 	From   string `json:"from"`
@@ -60,27 +59,27 @@ type testObject struct {
 
 func main() {
 	var kubeConfigPath string
-	var rerun int
+	var rerun []int
 	var failedTests uint8
 
-	// TODO:
-	//		 rerun specified tests -- currently only 1 test allowed
-	//		 add docs
-	//		 add makefile -- done
 	flag.StringVarP(&namespace, "namespace", "n", "dpservice-test", "Namespace of the Daemonset")
 	flag.BoolVarP(&verbose, "verbose", "v", false, "Show verbose output")
 	flag.BoolVarP(&ping, "ping", "p", false, "If ping should be tested")
 	flag.BoolVarP(&curl, "curl", "c", false, "If curl should be tested")
-	// TODO: change rerun to slice
-	flag.IntVarP(&rerun, "rerun", "r", 0, "Test ID to rerun")
-	// TODO: remove retries and only keep rerun
-	flag.IntVarP(&retries, "retries", "i", 0, "Maximum retries for each test")
+	flag.IntSliceVarP(&rerun, "rerun", "r", []int{}, "Test ID to rerun")
 	flag.StringVarP(&fromAZ, "from-az", "f", "all", "Tests from specified AZ")
 	flag.StringVarP(&toAZ, "to-az", "t", "all", "Tests to specified AZ")
 	flag.StringVarP(&kubeConfigPath, "kubeconfig", "k", "", "location of your kubeconfig file")
 
 	flag.Parse()
-	fmt.Printf("Using kubeconfig: %s\n", kubeConfigPath)
+
+	// to prevent running tests on wrong cluster, kubeconfig has to be specified
+	if kubeConfigPath == "" {
+		fmt.Println("Kubeconfig path has to be specified via --kubeconfig/-k flag")
+		os.Exit(1)
+	} else {
+		fmt.Printf("Using kubeconfig: %s\n", kubeConfigPath)
+	}
 
 	kubeConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
 	if err != nil {
@@ -120,50 +119,48 @@ func main() {
 	}
 
 	// prepare test cases based on filter
-	var tests []testCase
-	if rerun != 0 {
-		// Read the JSON file
+	var testsToRun []testCase
+	if len(rerun) != 0 {
 		file, err := os.Open("test_results.json")
 		if err != nil {
 			log.Fatalf("Error opening file: %v", err)
 		}
 		defer file.Close()
 
-		// Read the file contents into a byte slice
 		jsonData, err := io.ReadAll(file)
 		if err != nil {
 			log.Fatalf("Error reading file: %v", err)
 		}
 
 		var rerunTests []testCase
-		// Unmarshal the JSON data into a slice of Test structs
 		err = json.Unmarshal(jsonData, &rerunTests)
 		if err != nil {
 			log.Fatalf("Error unmarshalling data: %v", err)
 		}
 
-		// TODO: allow to rerun more tests
-		for id, testCase := range rerunTests {
-			if testCase.Id == uint16(rerun) {
-				tests = append(tests, rerunTests[id])
+		// pick tests to rerun from previously run tests
+		for _, rerunId := range rerun {
+			for id, testCase := range rerunTests {
+				if testCase.Id == uint16(rerunId) {
+					testsToRun = append(testsToRun, rerunTests[id])
+				}
 			}
 		}
 	} else {
-		tests = prerpareTestCases(pods)
+		testsToRun = prerpareTestCases(pods)
 	}
-	if len(tests) == 0 {
+	if len(testsToRun) == 0 {
 		fmt.Printf("Nothing to do; no test case matched the filter.\n")
 		os.Exit(0)
 	}
 
 	// run tests
-	fmt.Printf("Pods running: %d. Starting tests with max %d retries per test from %s to %s.\n----------\n",
-		len(pods.Items), retries, fromAZ, toAZ)
-	tests = runTests(kubeConfig, tests)
+	fmt.Printf("Pods running: %d. Starting tests from %s to %s.\n----------\n",
+		len(pods.Items), fromAZ, toAZ)
+	testResults := runTests(kubeConfig, testsToRun)
 
 	// analyse test results
-	// TODO: clean up the output
-	for _, test := range tests {
+	for _, test := range testResults {
 		if !test.Result {
 			failedTests++
 			if verbose {
@@ -182,8 +179,8 @@ func main() {
 		}
 	}
 	result := fmt.Sprintf("%s | %s | %s\n",
-		color.YellowString(fmt.Sprintf("RUN: %d", len(tests))),
-		color.GreenString(fmt.Sprintf("PASSED: %d", len(tests)-int(failedTests))),
+		color.YellowString(fmt.Sprintf("RUN: %d", len(testResults))),
+		color.GreenString(fmt.Sprintf("PASSED: %d", len(testResults)-int(failedTests))),
 		color.RedString(fmt.Sprintf("FAILED: %d", failedTests)))
 	if failedTests > 0 {
 		fmt.Printf("----------\n%s -- %s", color.RedString("FAIL!"), result)
@@ -191,15 +188,17 @@ func main() {
 		fmt.Printf("----------\n%s -- %s", color.GreenString("SUCCESS!"), result)
 	}
 
-	// write the results to JSON file
-	jsonData, err := json.MarshalIndent(tests, "", "  ")
-	if err != nil {
-		log.Fatalf("Error marshalling data: %v", err)
-	}
+	// write the results to JSON file when no rerun was issued
+	if len(rerun) == 0 {
+		jsonData, err := json.MarshalIndent(testResults, "", "  ")
+		if err != nil {
+			log.Fatalf("Error marshalling data: %v", err)
+		}
 
-	err = os.WriteFile("test_results.json", jsonData, 0644)
-	if err != nil {
-		log.Fatalf("Error writing to file: %v", err)
+		err = os.WriteFile("test_results.json", jsonData, 0644)
+		if err != nil {
+			log.Fatalf("Error writing to file: %v", err)
+		}
 	}
 }
 
@@ -239,31 +238,26 @@ func podExec(kubeConfig *rest.Config, pod *v1.Pod, command string) (string, stri
 	request := coreClient.CoreV1().RESTClient().Post().
 		Namespace(pod.Namespace).Resource("pods").Name(pod.Name).
 		SubResource("exec").VersionedParams(&v1.PodExecOptions{
-		Command: []string{"/bin/sh", "-c", command},
-		Stdin:   true,
-		Stdout:  true,
-		Stderr:  true,
-		TTY:     false,
+		Command:   []string{"/bin/sh", "-c", command},
+		Container: dsName,
+		Stdin:     true,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       false,
 	}, scheme.ParameterCodec)
 	exec, err := remotecommand.NewSPDYExecutor(kubeConfig, "POST", request.URL())
 	if err != nil {
 		return "", "", fmt.Errorf("%w Failed to create SPDY Executor for %v/%v", err, pod.Namespace, pod.Name)
 	}
 
-	// retry for defined times
-	for i := 0; i < retries+1; i++ {
-		err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
-			Stdin:  os.Stdin,
-			Stdout: stdout,
-			Stderr: stderr,
-			Tty:    false,
-		})
-		if err == nil {
-			break
-		} else if i == 2 {
-			return "", "", fmt.Errorf("%w Failed executing command %s on %v/%v", err, command, pod.Namespace, pod.Name)
-		}
-		retries++
+	err = exec.StreamWithContext(context.Background(), remotecommand.StreamOptions{
+		Stdin:  os.Stdin,
+		Stdout: stdout,
+		Stderr: stderr,
+		Tty:    false,
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("%w Failed executing command %s on %v/%v", err, command, pod.Namespace, pod.Name)
 	}
 
 	return stdout.String(), stderr.String(), nil
@@ -297,6 +291,7 @@ func getHttpCode(input string) int {
 	return httpCode
 }
 
+// prepare test cases to be run based on running pods and filters
 func prerpareTestCases(pods *v1.PodList) []testCase {
 	tests := make([]testCase, 0)
 	testIps := map[string]testObject{}
@@ -338,9 +333,9 @@ func prerpareTestCases(pods *v1.PodList) []testCase {
 							ToIP:   ip,
 							Kind:   "curl",
 						}
-						if strings.Contains(dst.name, "shoot") {
+						if strings.Contains(dst.AZ, "AZ") {
 							currentTest.ToAZ = dst.AZ
-							currentTest.ToIP = fmt.Sprintf("%s:%d", currentTest.ToIP, port)
+							currentTest.ToIP = fmt.Sprintf("%s:%d", currentTest.ToIP, curlPort)
 						} else if dst.AZ == "Internet" {
 							currentTest.ToAZ = "Internet"
 						} else {
@@ -356,6 +351,7 @@ func prerpareTestCases(pods *v1.PodList) []testCase {
 	return tests
 }
 
+// run test cases and update their results
 func runTests(kubeConfig *rest.Config, tests []testCase) []testCase {
 	wg := new(sync.WaitGroup)
 	for i, test := range tests {
