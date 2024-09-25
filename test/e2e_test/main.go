@@ -35,8 +35,9 @@ const (
 )
 
 var (
-	ping, curl, verbose     bool
-	fromAZ, toAZ, namespace string
+	ping, curl, verbose, list bool
+	fromAZ, toAZ, namespace   string
+	rerun                     []int
 )
 
 type testCase struct {
@@ -52,20 +53,19 @@ type testCase struct {
 	Error  string `json:"error"`
 }
 
-type testObject struct {
+type testDst struct {
 	AZ   string
 	name string
 }
 
 func main() {
 	var kubeConfigPath string
-	var rerun []int
-	var failedTests uint8
 
 	flag.StringVarP(&namespace, "namespace", "n", "dpservice-test", "Namespace of the Daemonset")
 	flag.BoolVarP(&verbose, "verbose", "v", false, "Show verbose output")
 	flag.BoolVarP(&ping, "ping", "p", false, "If ping should be tested")
 	flag.BoolVarP(&curl, "curl", "c", false, "If curl should be tested")
+	flag.BoolVarP(&list, "list", "l", false, "List previously run tests")
 	flag.IntSliceVarP(&rerun, "rerun", "r", []int{}, "Test ID to rerun")
 	flag.StringVarP(&fromAZ, "from-az", "f", "all", "Tests from specified AZ")
 	flag.StringVarP(&toAZ, "to-az", "t", "all", "Tests to specified AZ")
@@ -73,7 +73,15 @@ func main() {
 
 	flag.Parse()
 
-	// to prevent running tests on wrong cluster, kubeconfig has to be specified
+	// only list saved test results and exit
+	if list {
+		verbose = true
+		testsFromFile := getTestsFromFile()
+		analyseResults(testsFromFile)
+		os.Exit(0)
+	}
+
+	// to prevent running tests on wrong cluster, kubeconfig has to be implicitly specified
 	if kubeConfigPath == "" {
 		fmt.Println("Kubeconfig path has to be specified via --kubeconfig/-k flag")
 		os.Exit(1)
@@ -118,91 +126,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	// prepare test cases based on filter
-	var testsToRun []testCase
-	if len(rerun) != 0 {
-		file, err := os.Open("test_results.json")
-		if err != nil {
-			log.Fatalf("Error opening file: %v", err)
-		}
-		defer file.Close()
-
-		jsonData, err := io.ReadAll(file)
-		if err != nil {
-			log.Fatalf("Error reading file: %v", err)
-		}
-
-		var rerunTests []testCase
-		err = json.Unmarshal(jsonData, &rerunTests)
-		if err != nil {
-			log.Fatalf("Error unmarshalling data: %v", err)
-		}
-
-		// pick tests to rerun from previously run tests
-		for _, rerunId := range rerun {
-			for id, testCase := range rerunTests {
-				if testCase.Id == uint16(rerunId) {
-					testsToRun = append(testsToRun, rerunTests[id])
-				}
-			}
-		}
-	} else {
-		testsToRun = prerpareTestCases(pods)
-	}
+	// prepare test cases
+	testsToRun := prerpareTestCases(pods)
 	if len(testsToRun) == 0 {
 		fmt.Printf("Nothing to do; no test case matched the filter.\n")
 		os.Exit(0)
 	}
 
 	// run tests
-	fmt.Printf("Pods running: %d. Starting tests from %s to %s.\n----------\n",
-		len(pods.Items), fromAZ, toAZ)
+	if len(rerun) > 0 {
+		fmt.Printf("Pods running: %d. Re-running selected tests.\n----------\n",
+			len(pods.Items))
+	} else {
+		fmt.Printf("Pods running: %d. Starting tests from %s to %s.\n----------\n",
+			len(pods.Items), fromAZ, toAZ)
+	}
 	testResults := runTests(kubeConfig, testsToRun)
 
-	// analyse test results
-	for _, test := range testResults {
-		if !test.Result {
-			failedTests++
-			if verbose {
-				fmt.Printf("%s ID - %d: %s from %s/%s to %s/%s: %s\n",
-					color.RedString("FAIL!"), test.Id, test.Kind, color.YellowString(test.FromAZ), test.From,
-					color.YellowString(test.ToAZ), test.To, test.Error)
-			} else {
-				fmt.Printf("%s ID - %d: %s from %s/%s to %s/%s\n",
-					color.RedString("FAIL!"), test.Id, test.Kind, color.YellowString(test.FromAZ), test.From,
-					color.YellowString(test.ToAZ), test.To)
-			}
-		} else if verbose {
-			fmt.Printf("%s ID - %d: %s from %s/%s to %s/%s\n",
-				color.GreenString("PASS!"), test.Id, test.Kind, color.YellowString(test.FromAZ), test.From,
-				color.YellowString(test.ToAZ), test.To)
-		}
-	}
-	result := fmt.Sprintf("%s | %s | %s\n",
-		color.YellowString(fmt.Sprintf("RUN: %d", len(testResults))),
-		color.GreenString(fmt.Sprintf("PASSED: %d", len(testResults)-int(failedTests))),
-		color.RedString(fmt.Sprintf("FAILED: %d", failedTests)))
-	if failedTests > 0 {
-		fmt.Printf("----------\n%s -- %s", color.RedString("FAIL!"), result)
-	} else {
-		fmt.Printf("----------\n%s -- %s", color.GreenString("SUCCESS!"), result)
-	}
+	// analyse test results and write to CLI
+	analyseResults(testResults)
 
-	// write the results to JSON file when no rerun was issued
-	if len(rerun) == 0 {
-		jsonData, err := json.MarshalIndent(testResults, "", "  ")
-		if err != nil {
-			log.Fatalf("Error marshalling data: %v", err)
-		}
-
-		err = os.WriteFile("test_results.json", jsonData, 0644)
-		if err != nil {
-			log.Fatalf("Error writing to file: %v", err)
-		}
-	}
+	// save test results to file
+	saveResultsToFile(testResults)
 }
 
-// list pods in specified namespace with filtered LabelSelector
+// list Running pods in specified namespace with filtered LabelSelector
 func listPods(namespace string, client kubernetes.Interface, filter string) (*v1.PodList, error) {
 	pods, err := client.CoreV1().Pods(namespace).List(
 		context.Background(),
@@ -293,62 +241,80 @@ func getHttpCode(input string) int {
 
 // prepare test cases to be run based on running pods and filters
 func prerpareTestCases(pods *v1.PodList) []testCase {
-	tests := make([]testCase, 0)
-	testIps := map[string]testObject{}
-	for _, pod := range pods.Items {
-		testIps[pod.Status.PodIP] = testObject{AZ: getAZ(pod.Spec.NodeName), name: pod.Name}
-		testIps[pod.Status.HostIP] = testObject{AZ: getAZ(pod.Spec.NodeName), name: pod.Spec.NodeName}
-		testIps["1.1.1.1"] = testObject{AZ: "Internet", name: "cloudflare"}
-	}
-	id := uint16(1)
-	for _, pod := range pods.Items {
-		if getAZ(pod.Spec.NodeName) == fromAZ || fromAZ == "all" {
-			if ping {
-				for ip, dst := range testIps {
-					if dst.AZ == toAZ || toAZ == "all" {
-						currentTest := testCase{
-							Id:     id,
-							From:   pod.Name,
-							FromIP: pod.Status.PodIP,
-							FromAZ: getAZ(pod.Spec.NodeName),
-							To:     dst.name,
-							ToAZ:   dst.AZ,
-							ToIP:   ip,
-							Kind:   "ping",
+	testsToRun := make([]testCase, 0)
+
+	if len(rerun) > 0 {
+		// pick tests from file if re-runing them
+		testsFromFile := getTestsFromFile()
+
+		rerunMap := make(map[uint16]struct{}, len(rerun))
+		for _, id := range rerun {
+			rerunMap[uint16(id)] = struct{}{}
+		}
+
+		for id, test := range testsFromFile {
+			if _, exists := rerunMap[test.Id]; exists {
+				testsToRun = append(testsToRun, testsFromFile[id])
+			}
+		}
+	} else {
+		// else prepare the tests based on filters
+		testIps := map[string]testDst{}
+		for _, pod := range pods.Items {
+			testIps[pod.Status.PodIP] = testDst{AZ: getAZ(pod.Spec.NodeName), name: pod.Name}
+			testIps[pod.Status.HostIP] = testDst{AZ: getAZ(pod.Spec.NodeName), name: pod.Spec.NodeName}
+			testIps["1.1.1.1"] = testDst{AZ: "Internet", name: "cloudflare"}
+		}
+		id := uint16(1)
+		for _, pod := range pods.Items {
+			if getAZ(pod.Spec.NodeName) == fromAZ || fromAZ == "all" {
+				if ping {
+					for ip, dst := range testIps {
+						if dst.AZ == toAZ || toAZ == "all" {
+							currentTest := testCase{
+								Id:     id,
+								From:   pod.Name,
+								FromIP: pod.Status.PodIP,
+								FromAZ: getAZ(pod.Spec.NodeName),
+								To:     dst.name,
+								ToAZ:   dst.AZ,
+								ToIP:   ip,
+								Kind:   "ping",
+							}
+							id++
+							testsToRun = append(testsToRun, currentTest)
 						}
-						id++
-						tests = append(tests, currentTest)
 					}
 				}
-			}
-			if curl {
-				for ip, dst := range testIps {
-					if dst.AZ == toAZ || toAZ == "all" {
-						currentTest := testCase{
-							Id:     id,
-							From:   pod.Name,
-							FromIP: pod.Status.PodIP,
-							FromAZ: getAZ(pod.Spec.NodeName),
-							To:     dst.name,
-							ToIP:   ip,
-							Kind:   "curl",
+				if curl {
+					for ip, dst := range testIps {
+						if dst.AZ == toAZ || toAZ == "all" {
+							currentTest := testCase{
+								Id:     id,
+								From:   pod.Name,
+								FromIP: pod.Status.PodIP,
+								FromAZ: getAZ(pod.Spec.NodeName),
+								To:     dst.name,
+								ToIP:   ip,
+								Kind:   "curl",
+							}
+							if strings.Contains(dst.AZ, "AZ") {
+								currentTest.ToAZ = dst.AZ
+								currentTest.ToIP = fmt.Sprintf("%s:%d", currentTest.ToIP, curlPort)
+							} else if dst.AZ == "Internet" {
+								currentTest.ToAZ = "Internet"
+							} else {
+								continue
+							}
+							id++
+							testsToRun = append(testsToRun, currentTest)
 						}
-						if strings.Contains(dst.AZ, "AZ") {
-							currentTest.ToAZ = dst.AZ
-							currentTest.ToIP = fmt.Sprintf("%s:%d", currentTest.ToIP, curlPort)
-						} else if dst.AZ == "Internet" {
-							currentTest.ToAZ = "Internet"
-						} else {
-							continue
-						}
-						id++
-						tests = append(tests, currentTest)
 					}
 				}
 			}
 		}
 	}
-	return tests
+	return testsToRun
 }
 
 // run test cases and update their results
@@ -356,8 +322,8 @@ func runTests(kubeConfig *rest.Config, tests []testCase) []testCase {
 	wg := new(sync.WaitGroup)
 	for i, test := range tests {
 		if verbose {
-			fmt.Printf("Test started: %s from %s/%s to %s/%s\n",
-				test.Kind, color.YellowString(test.FromAZ), test.From, color.YellowString(test.ToAZ), test.To)
+			fmt.Printf("Test ID - %3d started: %s from %s/%s to %s/%s\n",
+				test.Id, test.Kind, color.YellowString(test.FromAZ), test.From, color.YellowString(test.ToAZ), test.To)
 		}
 		wg.Add(1)
 		go func(test testCase) {
@@ -392,4 +358,87 @@ func runTests(kubeConfig *rest.Config, tests []testCase) []testCase {
 	wg.Wait()
 
 	return tests
+}
+
+func analyseResults(testResults []testCase) {
+	var failedTests uint8
+
+	for _, test := range testResults {
+		if !test.Result {
+			failedTests++
+			if verbose {
+				fmt.Printf("%s ID - %3d: %s from %s/%s to %s/%s: %s\n",
+					color.RedString("FAIL!"), test.Id, test.Kind, color.YellowString(test.FromAZ), test.From,
+					color.YellowString(test.ToAZ), test.To, test.Error)
+			} else {
+				fmt.Printf("%s ID - %3d: %s from %s/%s to %s/%s\n",
+					color.RedString("FAIL!"), test.Id, test.Kind, color.YellowString(test.FromAZ), test.From,
+					color.YellowString(test.ToAZ), test.To)
+			}
+		} else if verbose {
+			fmt.Printf("%s ID - %3d: %s from %s/%s to %s/%s\n",
+				color.GreenString("PASS!"), test.Id, test.Kind, color.YellowString(test.FromAZ), test.From,
+				color.YellowString(test.ToAZ), test.To)
+		}
+	}
+	result := fmt.Sprintf("%s | %s | %s\n",
+		color.YellowString(fmt.Sprintf("RUN: %d", len(testResults))),
+		color.GreenString(fmt.Sprintf("PASSED: %d", len(testResults)-int(failedTests))),
+		color.RedString(fmt.Sprintf("FAILED: %d", failedTests)))
+	if failedTests > 0 {
+		fmt.Printf("----------\n%s -- %s", color.RedString("FAIL!"), result)
+	} else {
+		fmt.Printf("----------\n%s -- %s", color.GreenString("SUCCESS!"), result)
+	}
+}
+
+func getTestsFromFile() []testCase {
+	file, err := os.Open("test_results.json")
+	if err != nil {
+		log.Fatalf("Error opening file: %v", err)
+	}
+	defer file.Close()
+
+	jsonData, err := io.ReadAll(file)
+	if err != nil {
+		log.Fatalf("Error reading file: %v", err)
+	}
+
+	var testsFromFile []testCase
+	err = json.Unmarshal(jsonData, &testsFromFile)
+	if err != nil {
+		log.Fatalf("Error unmarshalling data: %v", err)
+	}
+	return testsFromFile
+}
+
+// save the test results to file and update re-run tests
+func saveResultsToFile(testResults []testCase) {
+	// if re-running tests, update their results
+	if len(rerun) > 0 {
+		testsFromFile := getTestsFromFile()
+
+		testResultsMap := make(map[uint16]testCase, len(testResults))
+		for _, test := range testResults {
+			testResultsMap[uint16(test.Id)] = test
+		}
+
+		for id, test := range testsFromFile {
+			if test, exists := testResultsMap[test.Id]; exists {
+				testsFromFile[id].Result = test.Result
+			}
+		}
+
+		testResults = testsFromFile
+	}
+
+	jsonData, err := json.MarshalIndent(testResults, "", "  ")
+	if err != nil {
+		log.Fatalf("Error marshalling data: %v", err)
+	}
+
+	err = os.WriteFile("test_results.json", jsonData, 0644)
+	if err != nil {
+		log.Fatalf("Error writing to file: %v", err)
+	}
 }
