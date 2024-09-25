@@ -412,7 +412,7 @@ int dp_create_pf_async_isolation_rules(struct dp_port *port)
 	}
 
 #ifdef ENABLE_PF1_PROXY
-	if (port == dp_get_pf0()) {
+	if (dp_conf_is_pf1_proxy_enabled() && port == dp_get_pf0()) {
 		rules_required += 2;
 		// TODO maybe another function like virstvc uses (that returns the number above)
 

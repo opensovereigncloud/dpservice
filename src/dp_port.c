@@ -157,8 +157,6 @@ static int dp_port_init_ethdev(struct dp_port *port, struct rte_eth_dev_info *de
 	}
 
 	/* dp-service specific config */
-	// TODO this needs more investigation as to why it's a problem in OSC
-	// TODO should proxied PF be promiscuous? To receive everything?
 	if (!port->is_pf) {
 		DPS_LOG_INFO("INIT setting port to promiscuous mode", DP_LOG_PORT(port));
 		ret = rte_eth_promiscuous_enable(port->port_id);
@@ -555,12 +553,13 @@ static int dp_port_create_default_pf_async_templates(struct dp_port *port)
 		return DP_ERROR;
 	}
 #ifdef ENABLE_PF1_PROXY
-	if (port == dp_get_pf0()
-		&& (DP_FAILED(dp_create_pf_async_from_proxy_templates(port))
-			|| DP_FAILED(dp_create_pf_async_to_proxy_templates(port)))
-	) {
-		DPS_LOG_ERR("Failed to create pf async proxy templates", DP_LOG_PORT(port));
-		return DP_ERROR;
+	if (dp_conf_is_pf1_proxy_enabled() && port == dp_get_pf0()) {
+		if (DP_FAILED(dp_create_pf_async_from_proxy_templates(port))
+			|| DP_FAILED(dp_create_pf_async_to_proxy_templates(port))
+		) {
+			DPS_LOG_ERR("Failed to create pf async proxy templates", DP_LOG_PORT(port));
+			return DP_ERROR;
+		}
 	}
 #endif
 #ifdef ENABLE_VIRTSVC
@@ -616,7 +615,7 @@ static void dp_acquire_neigh_mac(struct dp_port *port)
 void dp_start_acquiring_neigh_mac(struct dp_port *port)
 {
 #ifdef ENABLE_PF1_PROXY
-	if (port == dp_get_pf1())
+	if (dp_conf_is_pf1_proxy_enabled() && port == dp_get_pf1())
 		port = &_dp_pf1_proxy_port;
 #endif
 	port->neighmac_period = DP_PORT_NEIGHMAC_INITIAL_PERIOD;
@@ -626,7 +625,7 @@ void dp_start_acquiring_neigh_mac(struct dp_port *port)
 void dp_stop_acquiring_neigh_mac(struct dp_port* port)
 {
 #ifdef ENABLE_PF1_PROXY
-	if (port == dp_get_pf1())
+	if (dp_conf_is_pf1_proxy_enabled() && port == dp_get_pf1())
 		port = &_dp_pf1_proxy_port;
 #endif
 	rte_timer_stop_sync(&port->neighmac_timer);
