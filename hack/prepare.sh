@@ -207,6 +207,16 @@ function get_pf1_proxy() {
 	echo "$proxy"
 }
 
+function get_pf1_proxy_vf() {
+	vf=$(devlink port | grep auxiliary/mlx5_core.eth.2/ | grep virtual | awk '{print $5}' | uniq)
+	if [ -z "$vf" ]; then
+		err "can't determine the pf1-proxy vf"
+	elif [ $(wc -l <<< "$vf") -ne 1 ]; then
+		err "multiple pf1-proxy vfs found"
+	fi
+	echo "$vf"
+}
+
 function get_ifname() {
 	local port=$1
 	devlink port | grep "physical port $port" | awk '{ print $5}'
@@ -238,6 +248,7 @@ function make_config() {
 		echo "a-pf0 ${devs[0]},class=rxq_cqe_comp_en=0,rx_vec_en=1,dv_flow_en=2,dv_esw_en=1,fdb_def_rule_en=1,representor=pf[0-1]vf[0-$[$actualvfs-1]]"
 		if [[ "$OPT_PF1_PROXY" == "true" ]]; then
 			echo "pf1-proxy $(get_pf1_proxy ${devs[1]})"
+			echo "pf1-proxy-vf $(get_pf1_proxy_vf)"
 		fi
 		echo "multiport-eswitch"
 	else

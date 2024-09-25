@@ -40,10 +40,16 @@ static struct dp_conf_virtual_services virtual_services = {0};
 
 #ifdef ENABLE_PF1_PROXY
 static char dp_conf_pf1_proxy[IF_NAMESIZE] = {0};
+static char dp_conf_pf1_proxy_vf[IF_NAMESIZE] = {0};
 
 const char *dp_conf_get_pf1_proxy(void)
 {
 	return dp_conf_pf1_proxy;
+}
+
+const char *dp_conf_get_pf1_proxy_vf(void)
+{
+	return dp_conf_pf1_proxy_vf;
 }
 
 bool dp_conf_is_pf1_proxy_enabled(void)
@@ -289,6 +295,8 @@ static int parse_line(char *line, int lineno)
 #ifdef ENABLE_PF1_PROXY
 	if (!strcmp(key, "pf1-proxy"))
 		return dp_argparse_string(value, dp_conf_pf1_proxy, sizeof(dp_conf_pf1_proxy));
+	if (!strcmp(key, "pf1-proxy-vf"))
+		return dp_argparse_string(value, dp_conf_pf1_proxy_vf, sizeof(dp_conf_pf1_proxy_vf));
 #endif
 
 	// Otherwise support all long options

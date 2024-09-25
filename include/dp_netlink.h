@@ -25,7 +25,7 @@ struct dp_nlnk_req {
 	struct dp_nl_tlv if_tlv;
 };
 
-int dp_get_pf_neigh_mac(int if_idx, struct rte_ether_addr *neigh, const struct rte_ether_addr *own_mac);
+int dp_get_pf_neigh_mac(uint32_t if_idx, struct rte_ether_addr *neigh, const struct rte_ether_addr *own_mac);
 
 #ifdef __cplusplus
 }
