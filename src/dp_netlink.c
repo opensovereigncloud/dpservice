@@ -66,7 +66,7 @@ static int dp_recv_msg(struct sockaddr_nl sock_addr, int sock, char *buf, int bu
 	return (int)msg_len;
 }
 
-int dp_get_pf_neigh_mac(int if_idx, struct rte_ether_addr *neigh, const struct rte_ether_addr *own_mac)
+int dp_get_pf_neigh_mac(uint32_t if_idx, struct rte_ether_addr *neigh, const struct rte_ether_addr *own_mac)
 {
 	struct sockaddr_nl sa = {
 		.nl_family = AF_NETLINK,
@@ -95,7 +95,7 @@ int dp_get_pf_neigh_mac(int if_idx, struct rte_ether_addr *neigh, const struct r
 	int sock;
 	char reply[DP_NLINK_BUF_SIZE];
 	int reply_len;
-	int ret = DP_ERROR;
+	int ret;
 
 	sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (sock < 0) {
@@ -119,11 +119,7 @@ int dp_get_pf_neigh_mac(int if_idx, struct rte_ether_addr *neigh, const struct r
 		goto cleanup;
 	}
 
-	// TODO this should be an error in production
-	if (DP_FAILED(dp_read_neigh((struct nlmsghdr *)reply, reply_len, neigh, own_mac)))
-		DPS_LOG_WARNING("No neighboring router found");
-
-	ret = DP_OK;
+	ret = dp_read_neigh((struct nlmsghdr *)reply, reply_len, neigh, own_mac);
 
 cleanup:
 	close(sock);
