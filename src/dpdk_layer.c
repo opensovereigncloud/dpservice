@@ -33,7 +33,7 @@ static inline void ring_free(struct rte_ring *ring)
 /** unsafe - does not do cleanup on failure */
 static int dp_dpdk_layer_init_unsafe(void)
 {
-	dp_layer.rte_mempool = rte_pktmbuf_pool_create("mbuf_pool", DP_MBUF_POOL_SIZE,
+	dp_layer.rte_mempool = rte_pktmbuf_pool_create("mbuf_pool", 350*1024,
 												   DP_MEMPOOL_CACHE_SIZE, DP_MBUF_PRIV_DATA_SIZE,
 												   //RTE_MBUF_DEFAULT_BUF_SIZE,
 												   //(RTE_MBUF_DEFAULT_DATAROOM + RTE_PKTMBUF_HEADROOM),
