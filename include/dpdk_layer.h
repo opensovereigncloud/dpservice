@@ -47,6 +47,7 @@ extern "C" {
 
 struct dp_dpdk_layer {
 	struct rte_mempool	*rte_mempool;
+	struct rte_mempool	*rte_jumbo_mempool;
 	struct rte_ring		*grpc_tx_queue;
 	struct rte_ring		*grpc_rx_queue;
 	struct rte_ring		*periodic_msg_queue;

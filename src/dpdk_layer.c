@@ -44,6 +44,17 @@ static int dp_dpdk_layer_init_unsafe(void)
 		return DP_ERROR;
 	}
 
+	dp_layer.rte_jumbo_mempool = rte_pktmbuf_pool_create("jumbo_mbuf_pool", 50*1024,
+												   DP_MEMPOOL_CACHE_SIZE, DP_MBUF_PRIV_DATA_SIZE,
+												   //RTE_MBUF_DEFAULT_BUF_SIZE,
+												   //(RTE_MBUF_DEFAULT_DATAROOM + RTE_PKTMBUF_HEADROOM),
+												   (9118 + RTE_PKTMBUF_HEADROOM),
+												   rte_socket_id());
+	if (!dp_layer.rte_jumbo_mempool) {
+		DPS_LOG_ERR("Cannot create jumbo mbuf pool", DP_LOG_RET(rte_errno));
+		return DP_ERROR;
+	}
+
 	dp_layer.num_of_vfs = dp_get_num_of_vfs();
 	if (DP_FAILED(dp_layer.num_of_vfs))
 		return DP_ERROR;
@@ -82,6 +93,7 @@ void dp_dpdk_layer_free(void)
 	ring_free(dp_layer.periodic_msg_queue);
 	ring_free(dp_layer.grpc_rx_queue);
 	ring_free(dp_layer.grpc_tx_queue);
+	rte_mempool_free(dp_layer.rte_jumbo_mempool);
 	rte_mempool_free(dp_layer.rte_mempool);
 }
 
