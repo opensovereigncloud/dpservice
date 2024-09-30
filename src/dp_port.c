@@ -617,7 +617,7 @@ static void dp_acquire_neigh_mac(struct dp_port *port)
 void dp_start_acquiring_neigh_mac(struct dp_port *port)
 {
 #ifdef ENABLE_PF1_PROXY
-	if (port == dp_get_pf1())
+	if (dp_conf_is_pf1_proxy_enabled() && port == dp_get_pf1())
 		port = &_dp_pf1_proxy_port;
 #endif
 	port->neighmac_period = DP_PORT_NEIGHMAC_INITIAL_PERIOD;
@@ -627,7 +627,7 @@ void dp_start_acquiring_neigh_mac(struct dp_port *port)
 void dp_stop_acquiring_neigh_mac(struct dp_port* port)
 {
 #ifdef ENABLE_PF1_PROXY
-	if (port == dp_get_pf1())
+	if (dp_conf_is_pf1_proxy_enabled() && port == dp_get_pf1())
 		port = &_dp_pf1_proxy_port;
 #endif
 	rte_timer_stop_sync(&port->neighmac_timer);
