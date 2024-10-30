@@ -64,14 +64,19 @@ static __rte_always_inline int dp_process_ipv4_snat(struct rte_mbuf *m, struct d
 
 	/* Expect the new destination in this conntrack object */
 	cntrack->flow_flags |= DP_FLOW_FLAG_SRC_NAT;
-	dp_delete_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack);
+	if (cntrack->ref_count.refcount.cnt != 2)
+		DPS_LOG_WARNING("Conntrack refcount is not 2", DP_LOG_VALUE(cntrack->ref_count.refcount.cnt),
+						DP_LOG_PORTID(cntrack->created_port_id), _DP_LOG_INT("aged", cntrack->aged));
+	dp_ref_inc(&cntrack->ref_count);
+	dp_delete_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack);  // TODO what if this fails
 	dp_set_ipaddr4(&cntrack->flow_key[DP_FLOW_DIR_REPLY].l3_dst, ntohl(ipv4_hdr->src_addr));
 	if (snat_data->nat_ip != 0)
 		cntrack->flow_key[DP_FLOW_DIR_REPLY].port_dst = df->nat_port;
 
-	if (DP_FAILED(dp_add_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack)))
+	if (DP_FAILED(dp_add_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack))) {
+		dp_ref_dec(&cntrack->ref_count);
 		return DP_ERROR;
-	dp_ref_inc(&cntrack->ref_count);
+	}
 
 	return DP_OK;
 }
@@ -127,15 +132,20 @@ static __rte_always_inline int dp_process_ipv6_nat64(struct rte_mbuf *m, struct 
 
 	/* Expect the new destination in this conntrack object */
 	cntrack->flow_flags |= DP_FLOW_FLAG_SRC_NAT64;
-	dp_delete_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack);
+	if (cntrack->ref_count.refcount.cnt != 2)
+		DPS_LOG_WARNING("Conntrack refcount is not 2", DP_LOG_VALUE(cntrack->ref_count.refcount.cnt),
+						DP_LOG_PORTID(cntrack->created_port_id), _DP_LOG_INT("aged", cntrack->aged));
+	dp_ref_inc(&cntrack->ref_count);
+	dp_delete_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack);  // TODO what if this fails?
 	dp_set_ipaddr4(&cntrack->flow_key[DP_FLOW_DIR_REPLY].l3_src, ntohl(dest_ip4));
 	dp_set_ipaddr4(&cntrack->flow_key[DP_FLOW_DIR_REPLY].l3_dst, snat64_data.nat_ip);
 	cntrack->flow_key[DP_FLOW_DIR_REPLY].port_dst = df->nat_port;
 	cntrack->flow_key[DP_FLOW_DIR_REPLY].proto = df->l4_type;
 
-	if (DP_FAILED(dp_add_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack)))
+	if (DP_FAILED(dp_add_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack))) {
+		dp_ref_dec(&cntrack->ref_count);
 		return DP_ERROR;
-	dp_ref_inc(&cntrack->ref_count);
+	}
 
 	return DP_OK;
 }
