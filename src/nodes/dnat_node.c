@@ -81,11 +81,16 @@ static __rte_always_inline rte_edge_t get_next_index(__rte_unused struct rte_nod
 
 			/* Expect the new source in this conntrack object */
 			cntrack->flow_flags |= DP_FLOW_FLAG_DST_NAT;
-			dp_delete_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack);
-			dp_set_ipaddr4(&cntrack->flow_key[DP_FLOW_DIR_REPLY].l3_src, ntohl(ipv4_hdr->dst_addr));
-			if (DP_FAILED(dp_add_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack)))
-				return DNAT_NEXT_DROP;
+			if (cntrack->ref_count.refcount.cnt != 2)
+				DPS_LOG_WARNING("Conntrack refcount is not 2", DP_LOG_VALUE(cntrack->ref_count.refcount.cnt),
+								DP_LOG_PORTID(cntrack->created_port_id), _DP_LOG_INT("aged", cntrack->aged));
 			dp_ref_inc(&cntrack->ref_count);
+			dp_delete_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack);  // TODO what if this fails?
+			dp_set_ipaddr4(&cntrack->flow_key[DP_FLOW_DIR_REPLY].l3_src, ntohl(ipv4_hdr->dst_addr));
+			if (DP_FAILED(dp_add_flow(&cntrack->flow_key[DP_FLOW_DIR_REPLY], cntrack))) {
+				dp_ref_dec(&cntrack->ref_count);
+				return DNAT_NEXT_DROP;
+			}
 		}
 		return DNAT_NEXT_IPV4_LOOKUP;
 	}
