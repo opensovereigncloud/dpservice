@@ -76,6 +76,8 @@ static __rte_always_inline rte_edge_t get_next_index(struct rte_node *node, stru
 	m->ol_flags |= RTE_MBUF_F_TX_TUNNEL_IP;
 
 	if (df->nat_type == DP_LB_RECIRC) {
+		if (df->conntrack)
+			dp_ref_dec_drop(&df->conntrack->ref_count);
 		dp_get_pkt_mark(m)->flags.is_recirc = true;
 		return IPIP_ENCAP_NEXT_CLS;
 	}

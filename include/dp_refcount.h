@@ -59,6 +59,16 @@ static inline bool dp_ref_dec_and_chk_freed(struct dp_ref *ref)
 	}
 }
 
+static inline void dp_ref_dec_drop(struct dp_ref *ref)
+{
+// #ifdef ENABLE_PYTEST
+	if (!ref->valid)
+		return;
+// #endif
+	if (rte_atomic32_read(&ref->refcount))
+		dp_ref_dec(ref);
+}
+
 #ifdef __cplusplus
 }
 #endif

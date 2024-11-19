@@ -91,6 +91,7 @@ static uint16_t tx_node_process(struct rte_graph *graph,
 		m = (struct rte_mbuf *)objs[i];
 		df = dp_get_flow_ptr(m);
 		if (df->conntrack) {
+			dp_ref_dec_drop(&df->conntrack->ref_count);
 			// mark the flow as default if it is not marked as any other status
 			if (!DP_FLOW_HAS_FLAG_NF(df->conntrack->flow_flags))
 				df->conntrack->flow_flags |= DP_FLOW_FLAG_DEFAULT;

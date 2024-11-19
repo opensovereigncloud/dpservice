@@ -3,6 +3,8 @@
 
 #include <rte_graph.h>
 #include <rte_mbuf.h>
+#include "dp_flow.h"
+#include "dp_refcount.h"
 #include "nodes/common_node.h"
 
 
@@ -12,10 +14,19 @@ static uint16_t drop_node_process(struct rte_graph *graph,
 								  uint16_t nb_objs)
 {
 	RTE_SET_USED(graph);
+	struct rte_mbuf *m;
+	struct dp_flow *df;
 
 	dp_graphtrace_node_burst(node, objs, nb_objs);
 
 	dp_graphtrace_drop_burst(node, objs, nb_objs);
+
+	for (uint16_t i = 0; i < nb_objs; ++i) {
+		m = (struct rte_mbuf *)objs[i];
+		df = dp_get_flow_ptr(m);
+		if (df->conntrack)
+			dp_ref_dec_drop(&df->conntrack->ref_count);
+	}
 
 	rte_pktmbuf_free_bulk((struct rte_mbuf **)objs, nb_objs);
 	return nb_objs;
