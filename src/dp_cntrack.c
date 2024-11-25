@@ -243,6 +243,7 @@ static __rte_always_inline int dp_get_flow_val(struct rte_mbuf *m, struct dp_flo
 	if (unlikely(DP_FAILED(ret)))
 		return ret;
 
+#if 0
 	if (prev_key && dp_are_flows_identical(curr_key, prev_key)) {
 		// flow is the same as it was for the previous packet
 		*p_flow_val = cached_flow_val;
@@ -250,6 +251,7 @@ static __rte_always_inline int dp_get_flow_val(struct rte_mbuf *m, struct dp_flo
 		dp_set_flow_offload_flag(m, cached_flow_val, df);
 		return DP_OK;
 	}
+#endif
 
 	// cache miss, try the flow table
 	ret = dp_get_flow(curr_key, p_flow_val);
@@ -264,14 +266,14 @@ static __rte_always_inline int dp_get_flow_val(struct rte_mbuf *m, struct dp_flo
 			DPS_LOG_WARNING("Failed to create a new flow table entry");
 			return DP_ERROR;
 		}
-		dp_cache_flow_val(*p_flow_val);
+// 		dp_cache_flow_val(*p_flow_val);
 		return DP_OK;
 	}
 
 	// already established flow found
 	dp_set_pkt_flow_direction(curr_key, *p_flow_val, df);
 	dp_set_flow_offload_flag(m, *p_flow_val, df);
-	dp_cache_flow_val(*p_flow_val);
+// 	dp_cache_flow_val(*p_flow_val);
 	return DP_OK;
 }
 
