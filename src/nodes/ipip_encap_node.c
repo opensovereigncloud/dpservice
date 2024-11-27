@@ -77,6 +77,7 @@ static __rte_always_inline rte_edge_t get_next_index(struct rte_node *node, stru
 
 	if (df->nat_type == DP_LB_RECIRC) {
 		dp_get_pkt_mark(m)->flags.is_recirc = true;
+		df->conntrack = NULL;
 		return IPIP_ENCAP_NEXT_CLS;
 	}
 
