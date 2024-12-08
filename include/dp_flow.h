@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 // arbitrary big number
-#define DP_FLOW_TABLE_MAX				850000
+#define DP_FLOW_TABLE_MAX				1700000
 
 #define DP_FLOW_VAL_AGE_CTX_CAPACITY	6
 
