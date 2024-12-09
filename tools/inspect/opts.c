@@ -20,6 +20,7 @@ enum {
 	OPT_TABLE = 't',
 	OPT_SOCKET = 's',
 _OPT_SHOPT_MAX = 255,
+	OPT_DUMP,
 };
 
 #define OPTSTRING ":hv" \
@@ -31,15 +32,18 @@ static const struct option dp_conf_longopts[] = {
 	{ "version", 0, 0, OPT_VERSION },
 	{ "table", 1, 0, OPT_TABLE },
 	{ "socket", 1, 0, OPT_SOCKET },
+	{ "dump", 0, 0, OPT_DUMP },
 	{ NULL, 0, 0, 0 }
 };
 
 static const char *table_choices[] = {
 	"lb",
+	"conntrack",
 };
 
 static enum dp_conf_table table = DP_CONF_TABLE_LB;
 static int numa_socket = -1;
+static bool dump = false;
 
 enum dp_conf_table dp_conf_get_table(void)
 {
@@ -49,6 +53,11 @@ enum dp_conf_table dp_conf_get_table(void)
 int dp_conf_get_numa_socket(void)
 {
 	return numa_socket;
+}
+
+bool dp_conf_is_dump(void)
+{
+	return dump;
 }
 
 
@@ -62,8 +71,9 @@ static inline void dp_argparse_help(const char *progname, FILE *outfile)
 	fprintf(outfile, "Usage: %s [options]\n"
 		" -h, --help           display this help and exit\n"
 		" -v, --version        display version and exit\n"
-		" -t, --table=NAME     hash table to choose: 'lb' (default)\n"
+		" -t, --table=NAME     hash table to choose: 'lb' (default) or 'conntrack'\n"
 		" -s, --socket=NUMBER  NUMA socket to use\n"
+		"     --dump           dump table contents\n"
 	, progname);
 }
 
@@ -75,6 +85,8 @@ static int dp_conf_parse_arg(int opt, const char *arg)
 		return dp_argparse_enum(arg, (int *)&table, table_choices, ARRAY_SIZE(table_choices));
 	case OPT_SOCKET:
 		return dp_argparse_int(arg, &numa_socket, INT_MIN, INT_MAX);
+	case OPT_DUMP:
+		return dp_argparse_store_true(&dump);
 	default:
 		fprintf(stderr, "Unimplemented option %d\n", opt);
 		return DP_ERROR;

@@ -10,7 +10,8 @@
 #include "dp_error.h"
 #include "dp_version.h"
 
-#include "common.h"
+#include "inspect.h"
+#include "inspect_conntrack.h"
 #include "inspect_lb.h"
 
 // generated definitions for getopt(),
@@ -79,7 +80,10 @@ int main(int argc, char **argv)
 
 	switch (dp_conf_get_table()) {
 	case DP_CONF_TABLE_LB:
-		ret = dp_inspect_lb_ipv4(numa_socket);
+		ret = dp_inspect_table(LB_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_lb : NULL);
+		break;
+	case DP_CONF_TABLE_CONNTRACK:
+		ret = dp_inspect_table(CONNTRACK_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_conntrack : NULL);
 		break;
 	}
 
