@@ -1,0 +1,77 @@
+// SPDX-FileCopyrightText: 2024 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-License-Identifier: Apache-2.0
+
+#include "inspect_conntrack.h"
+
+#include <netdb.h>
+#include <stdio.h>
+#include "dp_error.h"
+#include "dp_flow.h"
+
+#include "inspect.h"
+
+char str_proto[16];
+
+static const char *get_strproto(uint8_t proto)
+{
+	struct protoent *p = getprotobynumber(proto);
+
+	if (!p) {
+		snprintf(str_proto, sizeof(str_proto), "%u", proto);
+		return str_proto;
+	}
+
+	return p->p_name;
+}
+
+static const char *get_strtype(enum dp_vnf_type type)
+{
+	switch (type) {
+	case DP_VNF_TYPE_UNDEFINED:
+		return "none";
+	case DP_VNF_TYPE_LB_ALIAS_PFX:
+		return "lb_pfx";
+	case DP_VNF_TYPE_ALIAS_PFX:
+		return "pfx";
+	case DP_VNF_TYPE_LB:
+		return "lb";
+	case DP_VNF_TYPE_VIP:
+		return "vip";
+	case DP_VNF_TYPE_NAT:
+		return "nat";
+	case DP_VNF_TYPE_INTERFACE_IP:
+		return "iface";
+	}
+	return "?";
+}
+
+int dp_inspect_conntrack(const void *key, const void *val)
+{
+	const struct flow_key *flow_key = key;
+	const struct flow_value *flow_val = val;
+
+	char src[INET6_ADDRSTRLEN];
+	char dst[INET6_ADDRSTRLEN];
+
+	uint64_t hz = rte_get_tsc_hz();
+	uint64_t age = (rte_rdtsc() - flow_val->timestamp) / hz;
+
+	DP_IPADDR_TO_STR(&flow_key->l3_src, src);
+	DP_IPADDR_TO_STR(&flow_key->l3_dst, dst);
+
+	printf(" type: %6s, proto: %4s, vni: %3u, src: %15s:%5u, dst: %15s:%5u, port_id: %3u, state: %d, flags: 0x%02x, aged: %d, age: %02lu:%02lu:%02lu, timeout: %u\n",
+		get_strtype(flow_key->vnf_type),
+		get_strproto(flow_key->proto),
+		flow_key->vni,
+		src, flow_key->src.port_src,
+		dst, flow_key->port_dst,
+		flow_val->created_port_id,
+		flow_val->l4_state.tcp_state,
+		flow_val->flow_flags,
+		flow_val->aged,
+		age / 3600, (age % 60) / 60, age % 60,
+		flow_val->timeout_value
+	);
+
+	return DP_OK;
+}
