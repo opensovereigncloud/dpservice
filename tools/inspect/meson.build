@@ -1,5 +1,6 @@
 dpservice_inspect_sources = [
-  'common.c',
+  'inspect.c',
+  'inspect_conntrack.c',
   'inspect_lb.c',
   'main.c',
   '../../src/dp_argparse.c',

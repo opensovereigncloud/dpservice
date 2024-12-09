@@ -10,7 +10,7 @@
       "help": "hash table to choose",
       "var": "table",
       "type": "enum",
-      "choices": [ "lb" ],
+      "choices": [ "lb", "conntrack" ],
       "default": "lb"
     },
     {
@@ -21,6 +21,13 @@
       "var": "numa_socket",
       "type": "int",
       "default": -1
+    },
+    {
+      "lgopt": "dump",
+      "help": "dump table contents",
+      "var": "dump",
+      "type": "bool",
+      "default": "false"
     }
   ]
 }

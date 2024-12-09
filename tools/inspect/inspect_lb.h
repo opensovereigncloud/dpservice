@@ -4,6 +4,8 @@
 #ifndef __INSPECT_LB_H__
 #define __INSPECT_LB_H__
 
-int dp_inspect_lb_ipv4(int numa_socket);
+#define LB_TABLE_NAME "loadbalancer_table"
+
+int dp_inspect_lb(const void *key, const void *val);
 
 #endif
