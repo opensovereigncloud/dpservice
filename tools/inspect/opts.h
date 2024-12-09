@@ -10,10 +10,12 @@
 
 enum dp_conf_table {
 	DP_CONF_TABLE_LB,
+	DP_CONF_TABLE_CONNTRACK,
 };
 
 enum dp_conf_table dp_conf_get_table(void);
 int dp_conf_get_numa_socket(void);
+bool dp_conf_is_dump(void);
 
 enum dp_conf_runmode {
 	DP_CONF_RUNMODE_NORMAL, /**< Start normally */
