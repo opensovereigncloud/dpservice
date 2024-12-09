@@ -1,0 +1,26 @@
+{
+  "header": "opts.h",
+  "source": "opts.c",
+  "markdown": "../../docs/deployment/help_dpservice-inspect.md",
+  "options": [
+    {
+      "shopt": "t",
+      "lgopt": "table",
+      "arg": "NAME",
+      "help": "hash table to choose",
+      "var": "table",
+      "type": "enum",
+      "choices": [ "lb" ],
+      "default": "lb"
+    },
+    {
+      "shopt": "s",
+      "lgopt": "socket",
+      "arg": "NUMBER",
+      "help": "NUMA socket to use",
+      "var": "numa_socket",
+      "type": "int",
+      "default": -1
+    }
+  ]
+}
