@@ -110,7 +110,10 @@ struct flow_value {
 	} incoming_flow_offloaded_flag;
 	struct dp_ref	ref_count;
 	union {
-		enum dp_flow_tcp_state		tcp_state;
+		struct {
+			enum dp_flow_tcp_state	state;
+			enum dp_flow_dir		syn_flow_dir;
+		} tcp;
 	} l4_state;
 	bool			aged;
 };
