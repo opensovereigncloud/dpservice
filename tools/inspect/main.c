@@ -12,7 +12,11 @@
 
 #include "inspect.h"
 #include "inspect_conntrack.h"
+#include "inspect_iface.h"
 #include "inspect_lb.h"
+#include "inspect_nat.h"
+#include "inspect_vnf.h"
+#include "inspect_vni.h"
 
 // generated definitions for getopt(),
 // generated storage variables and
@@ -63,6 +67,37 @@ static void list_tables(void)
 		printf("  %s\n", table_choices[i]);
 }
 
+static const struct dp_inspect_spec *get_spec(enum dp_conf_table selected_table)
+{
+	switch (selected_table) {
+	case DP_CONF_TABLE_LIST:
+		return NULL;
+	case DP_CONF_TABLE_CONNTRACK:
+		return &dp_inspect_conntrack_spec;
+	case DP_CONF_TABLE_DNAT:
+		return &dp_inspect_dnat_spec;
+	case DP_CONF_TABLE_IFACE:
+		return &dp_inspect_iface_spec;
+	case DP_CONF_TABLE_LB:
+		return &dp_inspect_lb_spec;
+	case DP_CONF_TABLE_LB_ID:
+		return &dp_inspect_lb_id_spec;
+	case DP_CONF_TABLE_PORTMAP:
+		return &dp_inspect_portmap_spec;
+	case DP_CONF_TABLE_PORTOVERLOAD:
+		return &dp_inspect_portoverload_spec;
+	case DP_CONF_TABLE_SNAT:
+		return &dp_inspect_snat_spec;
+	case DP_CONF_TABLE_VNF:
+		return &dp_inspect_vnf_spec;
+	case DP_CONF_TABLE_VNF_REV:
+		return &dp_inspect_vnf_rev_spec;
+	case DP_CONF_TABLE_VNI:
+		return &dp_inspect_vni_spec;
+	}
+	return NULL;
+}
+
 
 static void dp_argparse_version(void)
 {
@@ -71,6 +106,7 @@ static void dp_argparse_version(void)
 
 int main(int argc, char **argv)
 {
+	const struct dp_inspect_spec *spec;
 	int ret;
 
 	switch (dp_conf_parse_args(argc, argv)) {
@@ -88,17 +124,12 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	switch (dp_conf_get_table()) {
-	case DP_CONF_TABLE_LIST:
+	spec = get_spec(dp_conf_get_table());
+	if (!spec) {
 		list_tables();
-		break;
-	case DP_CONF_TABLE_LB:
-		ret = dp_inspect_table(LB_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_lb : NULL);
-		break;
-	case DP_CONF_TABLE_CONNTRACK:
-		ret = dp_inspect_table(CONNTRACK_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_conntrack : NULL);
-		break;
-	}
+		ret = DP_OK;
+	} else
+		ret = dp_inspect(spec, dp_conf_get_numa_socket(), dp_conf_is_dump() ? DP_INSPECT_DUMP : DP_INSPECT_COUNT);
 
 	eal_cleanup();
 

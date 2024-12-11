@@ -7,47 +7,10 @@
 #include "dp_error.h"
 #include "dp_flow.h"
 
-#include "inspect.h"
+#include "common_ip.h"
+#include "common_vnf.h"
 
-char str_proto[16];
-
-static const char *get_strproto(uint8_t proto)
-{
-	switch (proto) {
-		case IPPROTO_IP: return "ip";
-		case IPPROTO_ICMP: return "icmp";
-		case IPPROTO_IPIP: return "ipip";
-		case IPPROTO_TCP: return "tcp";
-		case IPPROTO_UDP: return "udp";
-		case IPPROTO_IPV6: return "ipv6";
-		default: break;
-	}
-	snprintf(str_proto, sizeof(str_proto), "%u", proto);
-	return str_proto;
-}
-
-static const char *get_strtype(enum dp_vnf_type type)
-{
-	switch (type) {
-	case DP_VNF_TYPE_UNDEFINED:
-		return "none";
-	case DP_VNF_TYPE_LB_ALIAS_PFX:
-		return "lb_pfx";
-	case DP_VNF_TYPE_ALIAS_PFX:
-		return "pfx";
-	case DP_VNF_TYPE_LB:
-		return "lb";
-	case DP_VNF_TYPE_VIP:
-		return "vip";
-	case DP_VNF_TYPE_NAT:
-		return "nat";
-	case DP_VNF_TYPE_INTERFACE_IP:
-		return "iface";
-	}
-	return "?";
-}
-
-static const char *get_strstate(enum dp_flow_tcp_state state)
+static const char *get_str_state(enum dp_flow_tcp_state state)
 {
 	switch (state) {
 	case DP_FLOW_TCP_STATE_NONE:
@@ -66,7 +29,7 @@ static const char *get_strstate(enum dp_flow_tcp_state state)
 	return "?";
 };
 
-int dp_inspect_conntrack(const void *key, const void *val)
+static int dp_inspect_conntrack(const void *key, const void *val)
 {
 	const struct flow_key *flow_key = key;
 	const struct flow_value *flow_val = val;
@@ -80,19 +43,26 @@ int dp_inspect_conntrack(const void *key, const void *val)
 	DP_IPADDR_TO_STR(&flow_key->l3_src, src);
 	DP_IPADDR_TO_STR(&flow_key->l3_dst, dst);
 
-	printf(" type: %6s, proto: %4s, vni: %3u, src: %15s:%5u, dst: %15s:%5u, port_id: %3u, state: %6s, flags: 0x%02x, aged: %d, age: %02lu:%02lu:%02lu, timeout: %u\n",
-		get_strtype(flow_key->vnf_type),
-		get_strproto(flow_key->proto),
+	printf(" type: %6s, vni: %3u, proto: %4s, src: %15s:%-5u, dst: %15s:%-5u, port_id: %3u, state: %6s, flags: 0x%02x, aged: %d, age: %02lu:%02lu:%02lu, timeout: %5u, ref_count: %u\n",
+		get_str_vnftype(flow_key->vnf_type),
 		flow_key->vni,
+		get_str_ipproto(flow_key->proto),
 		src, flow_key->src.port_src,
 		dst, flow_key->port_dst,
 		flow_val->created_port_id,
-		get_strstate(flow_val->l4_state.tcp.state),
+		get_str_state(flow_val->l4_state.tcp.state),
 		flow_val->flow_flags,
 		flow_val->aged,
 		age / 3600, age / 60 % 60, age % 60,
-		flow_val->timeout_value
+		flow_val->timeout_value,
+		rte_atomic32_read(&flow_val->ref_count.refcount)
 	);
 
 	return DP_OK;
 }
+
+
+const struct dp_inspect_spec dp_inspect_conntrack_spec = {
+	.table_name = "conntrack_table",
+	.dump_func = dp_inspect_conntrack,
+};
