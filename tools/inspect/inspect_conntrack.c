@@ -90,7 +90,7 @@ int dp_inspect_conntrack(const void *key, const void *val)
 		get_strstate(flow_val->l4_state.tcp.state),
 		flow_val->flow_flags,
 		flow_val->aged,
-		age / 3600, (age % 60) / 60, age % 60,
+		age / 3600, age / 60 % 60, age % 60,
 		flow_val->timeout_value
 	);
 
