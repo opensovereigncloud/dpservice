@@ -12,7 +12,11 @@
 
 #include "inspect.h"
 #include "inspect_conntrack.h"
+#include "inspect_iface.h"
 #include "inspect_lb.h"
+#include "inspect_nat.h"
+#include "inspect_vnf.h"
+#include "inspect_vni.h"
 
 // generated definitions for getopt(),
 // generated storage variables and
@@ -92,11 +96,38 @@ int main(int argc, char **argv)
 	case DP_CONF_TABLE_LIST:
 		list_tables();
 		break;
+	case DP_CONF_TABLE_CONNTRACK:
+		ret = dp_inspect_table(CONNTRACK_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_conntrack : NULL);
+		break;
+	case DP_CONF_TABLE_DNAT:
+		ret = dp_inspect_table(DNAT_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_dnat : NULL);
+		break;
+	case DP_CONF_TABLE_IFACE:
+		ret = dp_inspect_table(IFACE_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_iface : NULL);
+		break;
 	case DP_CONF_TABLE_LB:
 		ret = dp_inspect_table(LB_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_lb : NULL);
 		break;
-	case DP_CONF_TABLE_CONNTRACK:
-		ret = dp_inspect_table(CONNTRACK_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_conntrack : NULL);
+	case DP_CONF_TABLE_LB_ID:
+		ret = dp_inspect_table(LB_ID_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_lb_id : NULL);
+		break;
+	case DP_CONF_TABLE_PORTMAP:
+		ret = dp_inspect_table(PORTMAP_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_portmap : NULL);
+		break;
+	case DP_CONF_TABLE_PORTOVERLOAD:
+		ret = dp_inspect_table(PORTOVERLOAD_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_portoverload : NULL);
+		break;
+	case DP_CONF_TABLE_SNAT:
+		ret = dp_inspect_table(SNAT_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_snat : NULL);
+		break;
+	case DP_CONF_TABLE_VNF:
+		ret = dp_inspect_table(VNF_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_vnf : NULL);
+		break;
+	case DP_CONF_TABLE_VNF_REV:
+		ret = dp_inspect_table(VNF_REV_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_vnf_rev : NULL);
+		break;
+	case DP_CONF_TABLE_VNI:
+		ret = dp_inspect_table(VNI_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_vni : NULL);
 		break;
 	}
 

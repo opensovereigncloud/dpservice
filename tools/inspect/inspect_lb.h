@@ -5,7 +5,10 @@
 #define __INSPECT_LB_H__
 
 #define LB_TABLE_NAME "loadbalancer_table"
+#define LB_ID_TABLE_NAME "loadbalancer_id_table"
 
 int dp_inspect_lb(const void *key, const void *val);
+
+int dp_inspect_lb_id(const void *key, const void *val);
 
 #endif

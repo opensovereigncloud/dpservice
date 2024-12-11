@@ -20,6 +20,19 @@ int dp_inspect_lb(const void *key, const void *val)
 	char ip[INET6_ADDRSTRLEN];
 
 	DP_IPADDR_TO_STR(&lb_key->ip, ip);
-	printf(" ip: %15s  vni: %03u  lb_id: '%s'\n", ip, lb_key->vni, lb_val->lb_id);
+	printf(" ip: %15s, vni: %3u, lb_id: '%.*s'\n", ip, lb_key->vni, DP_LB_ID_MAX_LEN, lb_val->lb_id);
+	return DP_OK;
+}
+
+
+int dp_inspect_lb_id(const void *key, const void *val)
+{
+	const char *lb_id = key;
+	const struct lb_key *lb_key = val;
+
+	char ip[INET6_ADDRSTRLEN];
+
+	DP_IPADDR_TO_STR(&lb_key->ip, ip);
+	printf(" ip: %15s, vni: %3u, lb_id: '%.*s'\n", ip, lb_key->vni, DP_LB_ID_MAX_LEN, lb_id);
 	return DP_OK;
 }
