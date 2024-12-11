@@ -10,7 +10,7 @@
       "help": "hash table to choose",
       "var": "table",
       "type": "enum",
-      "choices": [ "list", "lb", "conntrack" ],
+      "choices": [ "list", "conntrack", "dnat", "iface", "lb", "lb_id", "portmap", "portoverload", "snat", "vnf", "vnf_rev", "vni" ],
       "default": "list"
     },
     {

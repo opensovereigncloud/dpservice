@@ -35,14 +35,15 @@ static int dp_dump_table(const struct rte_hash *htable, int (*dumpfunc)(const vo
 	return DP_OK;
 }
 
-int dp_inspect_table(const char *name, int numa_socket, int (*dumpfunc)(const void *key, const void *val))
+int dp_inspect(const struct dp_inspect_spec *spec, int numa_socket, enum dp_inspect_mode mode)
 {
 	struct rte_hash *htable;
 	char full_name[RTE_HASH_NAMESIZE];
+	int ret;
 
 	// TODO shouldn't this be taken from dpservice?
-	if ((unsigned int)snprintf(full_name, sizeof(full_name), "%s_%d", name, numa_socket) >= RTE_HASH_NAMESIZE) {
-		fprintf(stderr, "jhash table name '%s' is too long\n", name);
+	if ((unsigned int)snprintf(full_name, sizeof(full_name), "%s_%d", spec->table_name, numa_socket) >= RTE_HASH_NAMESIZE) {
+		fprintf(stderr, "jhash table name '%s' is too long\n", spec->table_name);
 		return DP_ERROR;
 	}
 
@@ -52,11 +53,15 @@ int dp_inspect_table(const char *name, int numa_socket, int (*dumpfunc)(const vo
 		return DP_ERROR;
 	}
 
-	// Unless in dump-mode, just print the table size
-	if (!dumpfunc) {
+	switch (mode) {
+	case DP_INSPECT_COUNT:
 		printf("Table '%s' has %u entries\n", full_name, rte_hash_count(htable));
-		return DP_OK;
+		ret = DP_OK;
+		break;
+	case DP_INSPECT_DUMP:
+		ret = dp_dump_table(htable, spec->dump_func);
+		break;
 	}
 
-	return dp_dump_table(htable, dumpfunc);
+	return ret;
 }

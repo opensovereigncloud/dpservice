@@ -4,8 +4,9 @@
 #ifndef __INSPECT_LB_H__
 #define __INSPECT_LB_H__
 
-#define LB_TABLE_NAME "loadbalancer_table"
+#include "inspect.h"
 
-int dp_inspect_lb(const void *key, const void *val);
+extern const struct dp_inspect_spec dp_inspect_lb_spec;
+extern const struct dp_inspect_spec dp_inspect_lb_id_spec;
 
 #endif

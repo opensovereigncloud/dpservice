@@ -4,7 +4,7 @@
 |--------|----------|-------------|---------|
 | -h, --help | None | display this help and exit |  |
 | -v, --version | None | display version and exit |  |
-| -t, --table | NAME | hash table to choose | 'list' (default), 'lb' or 'conntrack' |
+| -t, --table | NAME | hash table to choose | 'list' (default), 'conntrack', 'dnat', 'iface', 'lb', 'lb_id', 'portmap', 'portoverload', 'snat', 'vnf', 'vnf_rev' or 'vni' |
 | -s, --socket | NUMBER | NUMA socket to use |  |
 | --dump | None | dump table contents |  |
 
