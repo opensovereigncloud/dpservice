@@ -37,11 +37,12 @@ static const struct option dp_conf_longopts[] = {
 };
 
 static const char *table_choices[] = {
+	"list",
 	"lb",
 	"conntrack",
 };
 
-static enum dp_conf_table table = DP_CONF_TABLE_LB;
+static enum dp_conf_table table = DP_CONF_TABLE_LIST;
 static int numa_socket = -1;
 static bool dump = false;
 
@@ -71,7 +72,7 @@ static inline void dp_argparse_help(const char *progname, FILE *outfile)
 	fprintf(outfile, "Usage: %s [options]\n"
 		" -h, --help           display this help and exit\n"
 		" -v, --version        display version and exit\n"
-		" -t, --table=NAME     hash table to choose: 'lb' (default) or 'conntrack'\n"
+		" -t, --table=NAME     hash table to choose: 'list' (default), 'lb' or 'conntrack'\n"
 		" -s, --socket=NUMBER  NUMA socket to use\n"
 		"     --dump           dump table contents\n"
 	, progname);
