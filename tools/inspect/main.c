@@ -54,6 +54,16 @@ static void eal_cleanup(void)
 }
 
 
+static void list_tables(void)
+{
+	printf("Supported tables (-t argument):\n");
+	// table_choices is from conf.c
+	// 1 - skip the "list" option
+	for (size_t i = 1; i < RTE_DIM(table_choices); ++i)
+		printf("  %s\n", table_choices[i]);
+}
+
+
 static void dp_argparse_version(void)
 {
 	printf("DP Service version %s\n", DP_SERVICE_VERSION);
@@ -79,6 +89,9 @@ int main(int argc, char **argv)
 	}
 
 	switch (dp_conf_get_table()) {
+	case DP_CONF_TABLE_LIST:
+		list_tables();
+		break;
 	case DP_CONF_TABLE_LB:
 		ret = dp_inspect_table(LB_TABLE_NAME, dp_conf_get_numa_socket(), dp_conf_is_dump() ? dp_inspect_lb : NULL);
 		break;

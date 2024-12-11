@@ -9,6 +9,7 @@
 /***********************************************************************/
 
 enum dp_conf_table {
+	DP_CONF_TABLE_LIST,
 	DP_CONF_TABLE_LB,
 	DP_CONF_TABLE_CONNTRACK,
 };

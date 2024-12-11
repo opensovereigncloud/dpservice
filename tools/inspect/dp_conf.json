@@ -10,8 +10,8 @@
       "help": "hash table to choose",
       "var": "table",
       "type": "enum",
-      "choices": [ "lb", "conntrack" ],
-      "default": "lb"
+      "choices": [ "list", "lb", "conntrack" ],
+      "default": "list"
     },
     {
       "shopt": "s",
