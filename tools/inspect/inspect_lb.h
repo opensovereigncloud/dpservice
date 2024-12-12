@@ -6,7 +6,8 @@
 
 #include "inspect.h"
 
-extern const struct dp_inspect_spec dp_inspect_lb_spec;
-extern const struct dp_inspect_spec dp_inspect_lb_id_spec;
+int dp_inspect_init_lb(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format);
+
+int dp_inspect_init_lb_id(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format);
 
 #endif

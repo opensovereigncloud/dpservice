@@ -58,44 +58,88 @@ static void eal_cleanup(void)
 }
 
 
-static void list_tables(void)
+static void list_tables(enum dp_conf_output_format format)
 {
-	printf("Supported tables (-t argument):\n");
+	const char *format_string;
+	bool first = true;
+
+	switch (format) {
+	case DP_CONF_OUTPUT_FORMAT_HUMAN:
+		printf("Supported tables (-t argument):\n");
+		format_string = "  %s\n";
+		break;
+	case DP_CONF_OUTPUT_FORMAT_TABLE:
+	case DP_CONF_OUTPUT_FORMAT_CSV:
+		printf("NAME\n");
+		format_string = "%s\n";
+		break;
+	case DP_CONF_OUTPUT_FORMAT_JSON:
+		printf("[\n");
+		format_string = "\t\"%s\"";
+		break;
+	}
 	// table_choices is from conf.c
-	// 1 - skip the "list" option
-	for (size_t i = 1; i < RTE_DIM(table_choices); ++i)
-		printf("  %s\n", table_choices[i]);
+	// start at 1 - skip the "list" option
+	for (size_t i = 1; i < RTE_DIM(table_choices); ++i) {
+		if (format == DP_CONF_OUTPUT_FORMAT_JSON) {
+			if (first)
+				first = false;
+			else
+				printf(",\n");
+		}
+		printf(format_string, table_choices[i]);
+	}
+
+	if (format == DP_CONF_OUTPUT_FORMAT_JSON)
+		printf("\n]\n");
 }
 
-static const struct dp_inspect_spec *get_spec(enum dp_conf_table selected_table)
+static int dp_inspect_init(enum dp_conf_table selected_table, enum dp_inspect_output_format format, struct dp_inspect_spec *out_spec)
 {
 	switch (selected_table) {
 	case DP_CONF_TABLE_LIST:
-		return NULL;
+		break;
 	case DP_CONF_TABLE_CONNTRACK:
-		return &dp_inspect_conntrack_spec;
+		return dp_inspect_init_conntrack(out_spec, format);
 	case DP_CONF_TABLE_DNAT:
-		return &dp_inspect_dnat_spec;
+		return dp_inspect_init_dnat(out_spec, format);
 	case DP_CONF_TABLE_IFACE:
-		return &dp_inspect_iface_spec;
+		return dp_inspect_init_iface(out_spec, format);
 	case DP_CONF_TABLE_LB:
-		return &dp_inspect_lb_spec;
+		return dp_inspect_init_lb(out_spec, format);
 	case DP_CONF_TABLE_LB_ID:
-		return &dp_inspect_lb_id_spec;
+		return dp_inspect_init_lb_id(out_spec, format);
 	case DP_CONF_TABLE_PORTMAP:
-		return &dp_inspect_portmap_spec;
+		return dp_inspect_init_portmap(out_spec, format);
 	case DP_CONF_TABLE_PORTOVERLOAD:
-		return &dp_inspect_portoverload_spec;
+		return dp_inspect_init_portoverload(out_spec, format);
 	case DP_CONF_TABLE_SNAT:
-		return &dp_inspect_snat_spec;
+		return dp_inspect_init_snat(out_spec, format);
 	case DP_CONF_TABLE_VNF:
-		return &dp_inspect_vnf_spec;
+		return dp_inspect_init_vnf(out_spec, format);
 	case DP_CONF_TABLE_VNF_REV:
-		return &dp_inspect_vnf_rev_spec;
+		return dp_inspect_init_vnf_rev(out_spec, format);
 	case DP_CONF_TABLE_VNI:
-		return &dp_inspect_vni_spec;
+		return dp_inspect_init_vni(out_spec, format);
 	}
-	return NULL;
+	out_spec->table_name = NULL;
+	return DP_OK;
+}
+
+// unfortunately it's pretty hard to include the opts.h in the right place, thus this conversion
+static enum dp_inspect_output_format get_format(enum dp_conf_output_format format)
+{
+	switch (format) {
+	case DP_CONF_OUTPUT_FORMAT_HUMAN:
+		return DP_INSPECT_OUTPUT_FORMAT_HUMAN;
+	case DP_CONF_OUTPUT_FORMAT_TABLE:
+		return DP_INSPECT_OUTPUT_FORMAT_TABLE;
+	case DP_CONF_OUTPUT_FORMAT_CSV:
+		return DP_INSPECT_OUTPUT_FORMAT_CSV;
+	case DP_CONF_OUTPUT_FORMAT_JSON:
+		return DP_INSPECT_OUTPUT_FORMAT_JSON;
+	}
+	return DP_INSPECT_OUTPUT_FORMAT_TABLE;
 }
 
 
@@ -106,7 +150,7 @@ static void dp_argparse_version(void)
 
 int main(int argc, char **argv)
 {
-	const struct dp_inspect_spec *spec;
+	struct dp_inspect_spec spec;
 	int ret;
 
 	switch (dp_conf_parse_args(argc, argv)) {
@@ -124,12 +168,15 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	spec = get_spec(dp_conf_get_table());
-	if (!spec) {
-		list_tables();
-		ret = DP_OK;
-	} else
-		ret = dp_inspect(spec, dp_conf_get_numa_socket(), dp_conf_is_dump() ? DP_INSPECT_DUMP : DP_INSPECT_COUNT);
+	ret = dp_inspect_init(dp_conf_get_table(), get_format(dp_conf_get_output_format()), &spec);
+	if (!DP_FAILED(ret)) {
+		if (!spec.table_name)
+			list_tables(dp_conf_get_output_format());
+		else
+			ret = dp_inspect_table(&spec, dp_conf_get_numa_socket(),
+								   dp_conf_is_dump() ? DP_INSPECT_DUMP : DP_INSPECT_COUNT,
+								   get_format(dp_conf_get_output_format()));
+	}
 
 	eal_cleanup();
 

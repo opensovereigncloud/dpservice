@@ -8,13 +8,14 @@
 #include "dp_error.h"
 #include "dp_vni.h"
 
+static const char *g_vni_format;
 
 static int dp_inspect_vni(const void *key, const void *val)
 {
 	const struct dp_vni_key *vni_key = key;
 	const struct dp_vni_data *vni_data = val;
 
-	printf(" vni: %3d, data_vni: %3d, socket: %d, rib: %p, rib6: %p, ref_count: %u\n",
+	printf(g_vni_format,
 		vni_key->vni,
 		vni_data->vni,
 		vni_data->socket_id,
@@ -26,7 +27,27 @@ static int dp_inspect_vni(const void *key, const void *val)
 }
 
 
-const struct dp_inspect_spec dp_inspect_vni_spec = {
-	.table_name = "vni_table",
-	.dump_func = dp_inspect_vni,
-};
+int dp_inspect_init_vni(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format)
+{
+	out_spec->table_name = "vni_table";
+	out_spec->dump_func = dp_inspect_vni;
+	switch (format) {
+	case DP_INSPECT_OUTPUT_FORMAT_HUMAN:
+		out_spec->header = NULL;
+		g_vni_format = "vni: %3d, data_vni: %3d, socket: %d, rib: %p, rib6: %p, ref_count: %u\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_TABLE:
+		out_spec->header = "VNI  DATA_VNI  SOCKET                 RIB                RIB6  REF_COUNT\n";
+		g_vni_format = "%3d  %8d  %6d  %18p  %18p  %9u\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_CSV:
+		out_spec->header = "VNI,DATA_VNI,SOCKET,RIB,RIB6,REF_COUNT\n";
+		g_vni_format = "%d,%d,%d,%p,%p,%u\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_JSON:
+		out_spec->header = NULL;
+		g_vni_format = "{ \"vni\": %d, \"data_vni\": %d, \"socket\": %d, \"rib\": \"%p\", \"rib6\": \"%p\", \"ref_count\": %u }";
+		break;
+	}
+	return DP_OK;
+}

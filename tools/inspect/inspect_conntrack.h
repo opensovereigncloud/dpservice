@@ -6,6 +6,6 @@
 
 #include "inspect.h"
 
-extern const struct dp_inspect_spec dp_inspect_conntrack_spec;
+int dp_inspect_init_conntrack(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format);
 
 #endif
