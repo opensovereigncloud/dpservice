@@ -6,9 +6,12 @@
 
 #include "inspect.h"
 
-extern const struct dp_inspect_spec dp_inspect_dnat_spec;
-extern const struct dp_inspect_spec dp_inspect_snat_spec;
-extern const struct dp_inspect_spec dp_inspect_portmap_spec;
-extern const struct dp_inspect_spec dp_inspect_portoverload_spec;
+int dp_inspect_init_dnat(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format);
+
+int dp_inspect_init_snat(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format);
+
+int dp_inspect_init_portmap(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format);
+
+int dp_inspect_init_portoverload(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format);
 
 #endif

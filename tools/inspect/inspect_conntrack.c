@@ -10,6 +10,8 @@
 #include "common_ip.h"
 #include "common_vnf.h"
 
+static const char *g_conntrack_format;
+
 static const char *get_str_state(enum dp_flow_tcp_state state)
 {
 	switch (state) {
@@ -43,7 +45,7 @@ static int dp_inspect_conntrack(const void *key, const void *val)
 	DP_IPADDR_TO_STR(&flow_key->l3_src, src);
 	DP_IPADDR_TO_STR(&flow_key->l3_dst, dst);
 
-	printf(" type: %6s, vni: %3u, proto: %4s, src: %15s:%-5u, dst: %15s:%-5u, port_id: %3u, state: %6s, flags: 0x%02x, aged: %d, age: %02lu:%02lu:%02lu, timeout: %5u, ref_count: %u\n",
+	printf(g_conntrack_format,
 		get_str_vnftype(flow_key->vnf_type),
 		flow_key->vni,
 		get_str_ipproto(flow_key->proto),
@@ -62,7 +64,30 @@ static int dp_inspect_conntrack(const void *key, const void *val)
 }
 
 
-const struct dp_inspect_spec dp_inspect_conntrack_spec = {
-	.table_name = "conntrack_table",
-	.dump_func = dp_inspect_conntrack,
-};
+int dp_inspect_init_conntrack(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format)
+{
+	out_spec->table_name = "conntrack_table";
+	out_spec->dump_func = dp_inspect_conntrack;
+	switch (format) {
+	case DP_INSPECT_OUTPUT_FORMAT_HUMAN:
+		out_spec->header = NULL;
+		g_conntrack_format = "type: %6s, vni: %3u, proto: %4s, src: %15s:%-5u, dst: %15s:%-5u, port_id: %3u, "
+							 "state: %6s, flags: 0x%02x, aged: %d, age: %02lu:%02lu:%02lu, timeout: %5u, ref_count: %u\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_TABLE:
+		out_spec->header = "TYPE    VNI  PROTO            SOURCE            DESTINATION       PORT_ID  STATE   FLAGS  AGED       AGE  TIMEOUT  REF_COUNT\n";
+		g_conntrack_format = "%-6s  %3u  %-5s  %15s:%-5u  %15s:%-5u  %7u  %-6s   0x%02x     %d  %02lu:%02lu:%02lu  %7u  %9u\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_CSV:
+		out_spec->header = "TYPE,VNI,PROTO,SOURCE,DESTINATION,PORT_ID,STATE,FLAGS,AGED,AGE,TIMEOUT,REF_COUNT\n";
+		g_conntrack_format = "%s,%u,%s,%s:%u,%s:%u,%u,%s,0x%02x,%d,%02lu:%02lu:%02lu,%u,%u\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_JSON:
+		out_spec->header = NULL;
+		g_conntrack_format = "{ \"type\": \"%s\", \"vni\": %u, \"proto\": \"%s\", \"src\": \"%s:%u\", \"dst\": \"%s:%u\", "
+							 "\"port_id\": %u, \"state\": \"%s\", \"flags\": \"0x%02x\", \"aged\": %d, \"age\": \"%02lu:%02lu:%02lu\", "
+							 "\"timeout\": %u, \"ref_count\": %u }";
+		break;
+	}
+	return DP_OK;
+}

@@ -10,6 +10,10 @@
 
 #include "common_ip.h"
 
+static const char *g_dnat_format;
+static const char *g_snat_format;
+static const char *g_portmap_format;
+static const char *g_portoverload_format;
 
 static int dp_inspect_dnat(const void *key, const void *val)
 {
@@ -21,7 +25,7 @@ static int dp_inspect_dnat(const void *key, const void *val)
 
 	DP_IPV4_TO_STR(nat_key->ip, vip);
 	DP_IPV4_TO_STR(dnat_data->dnat_ip, ip);
-	printf(" vip: %15s, vni: %3u, ip: %15s\n",
+	printf(g_dnat_format,
 		vip,
 		nat_key->vni,
 		ip
@@ -45,7 +49,7 @@ static int dp_inspect_snat(const void *key, const void *val)
 	DP_IPV4_TO_STR(snat_data->nat_ip, nat_ip);
 	DP_IPV6_TO_STR(&snat_data->ul_vip_ip6, ul_vip);
 	DP_IPV6_TO_STR(&snat_data->ul_nat_ip6, ul_nat);
-	printf(" vni: %3u, ip: %15s, vip_ip: %15s, nat_ip: %15s, min_port: %5u, max_port: %5u, ul_vip: %s, ul_nat: %s\n",
+	printf(g_snat_format,
 		nat_key->vni,
 		ip,
 		vip_ip,
@@ -68,7 +72,7 @@ static int dp_inspect_portmap(const void *key, const void *val)
 
 	DP_IPADDR_TO_STR(&portmap_key->src_ip, src_ip);
 	DP_IPV4_TO_STR(portmap_data->nat_ip, nat_ip);
-	printf(" vni: %3u, src_ip: %15s, src_port: %5u, nat_ip: %15s, nat_port: %5u, flows: %u\n",
+	printf(g_portmap_format,
 		portmap_key->vni,
 		src_ip,
 		portmap_key->iface_src_port,
@@ -90,7 +94,7 @@ static int dp_inspect_portoverload(const void *key, const void *val)
 
 	DP_IPV4_TO_STR(pkey->nat_ip, nat_ip);
 	DP_IPV4_TO_STR(pkey->dst_ip, dst_ip);
-	printf(" nat_ip: %15s, nat_port: %5u, dst_ip: %15s, dst_port: %5u, proto: %4s\n",
+	printf(g_portoverload_format,
 		nat_ip, pkey->nat_port,
 		dst_ip, pkey->dst_port,
 		get_str_ipproto(pkey->l4_type)
@@ -99,23 +103,103 @@ static int dp_inspect_portoverload(const void *key, const void *val)
 }
 
 
-// TODO global problem: define names in dpservice
-const struct dp_inspect_spec dp_inspect_dnat_spec = {
-	.table_name = "dnat_table",
-	.dump_func = dp_inspect_dnat,
-};
+int dp_inspect_init_dnat(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format)
+{
+	// TODO (applies everywhere) - should be defined in dpservice
+	out_spec->table_name = "dnat_table";
+	out_spec->dump_func = dp_inspect_dnat;
+	switch (format) {
+	case DP_INSPECT_OUTPUT_FORMAT_HUMAN:
+		out_spec->header = NULL;
+		g_dnat_format = "vip: %15s, vni: %3u, ip: %15s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_TABLE:
+		out_spec->header = "VIP              VNI  IP\n";
+		g_dnat_format = "%-15s  %3u  %-15s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_CSV:
+		out_spec->header = "VIP,VNI,IP\n";
+		g_dnat_format = "%s,%u,%s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_JSON:
+		out_spec->header = NULL;
+		g_dnat_format = "{ \"vip\": \"%s\", \"vni\": %u, \"ip\": \"%s\" }";
+		break;
+	}
+	return DP_OK;
+}
 
-const struct dp_inspect_spec dp_inspect_snat_spec = {
-	.table_name = "snat_table",
-	.dump_func = dp_inspect_snat,
-};
+int dp_inspect_init_snat(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format)
+{
+	out_spec->table_name = "snat_table";
+	out_spec->dump_func = dp_inspect_snat;
+	switch (format) {
+	case DP_INSPECT_OUTPUT_FORMAT_HUMAN:
+		out_spec->header = NULL;
+		g_snat_format = "vni: %3u, ip: %15s, vip_ip: %15s, nat_ip: %15s, min_port: %5u, max_port: %5u, ul_vip: %s, ul_nat: %s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_TABLE:
+		out_spec->header = "VNI  IP               VIP_IP           NAT_IP           MIN_PORT  MAX_PORT  UL_VIP                                   UL_NAT\n";
+		g_snat_format = "%3u  %-15s  %-15s  %-15s  %8u  %8u  %-39s  %-39s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_CSV:
+		out_spec->header = "VNI,IP,VIP_IP,NAT_IP,MIN_PORT,MAX_PORT,UL_VIP,UL_NAT\n";
+		g_snat_format = "%u,%s,%s,%s,%u,%u,%s,%s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_JSON:
+		out_spec->header = NULL;
+		g_snat_format = "{ \"vni\": %u, \"ip\": \"%s\", \"vip_ip\": \"%s\", \"nat_ip\": \"%s\", \"min_port\": %u, \"max_port\": %u, \"ul_vip\": \"%s\", \"ul_nat\": \"%s\" }";
+		break;
+	}
+	return DP_OK;
+}
 
-const struct dp_inspect_spec dp_inspect_portmap_spec = {
-	.table_name = "nat_portmap_table",
-	.dump_func = dp_inspect_portmap,
-};
+int dp_inspect_init_portmap(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format)
+{
+	out_spec->table_name = "nat_portmap_table";
+	out_spec->dump_func = dp_inspect_portmap;
+	switch (format) {
+	case DP_INSPECT_OUTPUT_FORMAT_HUMAN:
+		out_spec->header = NULL;
+		g_portmap_format = "vni: %3u, src_ip: %15s, src_port: %5u, nat_ip: %15s, nat_port: %5u, flows: %u\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_TABLE:
+		out_spec->header = "VNI  SRC_IP           SRC_PORT  NAT_IP           NAT_PORT  FLOWS\n";
+		g_portmap_format = "%3u  %-15s  %8u  %-15s  %8u  %5u\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_CSV:
+		out_spec->header = "VNI,SRC_IP,SRC_PORT,NAT_IP,NAT_PORT,FLOWS\n";
+		g_portmap_format = "%u,%s,%u,%s,%u,%u\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_JSON:
+		out_spec->header = NULL;
+		g_portmap_format = "{ \"vni\": %u, \"src_ip\": \"%s\", \"src_port\": %u, \"nat_ip\": \"%s\", \"nat_port\": %u, \"flows\": %u }";
+		break;
+	}
+	return DP_OK;
+}
 
-const struct dp_inspect_spec dp_inspect_portoverload_spec = {
-	.table_name = "nat_portoverload_table",
-	.dump_func = dp_inspect_portoverload,
-};
+int dp_inspect_init_portoverload(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format)
+{
+	out_spec->table_name = "nat_portoverload_table";
+	out_spec->dump_func = dp_inspect_portoverload;
+	switch (format) {
+	case DP_INSPECT_OUTPUT_FORMAT_HUMAN:
+		out_spec->header = NULL;
+		g_portoverload_format = "nat_ip: %15s, nat_port: %5u, dst_ip: %15s, dst_port: %5u, proto: %4s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_TABLE:
+		out_spec->header = "NAT_IP           NAT_PORT  DST_IP           DST_PORT  PROTO\n";
+		g_portoverload_format = "%-15s  %8u  %-15s  %8u  %-5s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_CSV:
+		out_spec->header = "NAT_IP,NAT_PORT,DST_IP,DST_PORT,PROTO\n";
+		g_portoverload_format = "%s,%u,%s,%u,%s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_JSON:
+		out_spec->header = NULL;
+		g_portoverload_format = "{ \"nat_ip\": \"%s\", \"nat_port\": %u, \"dst_ip\": \"%s\", \"dst_port\": %u, \"proto\": \"%s\" }";
+		break;
+	}
+	return DP_OK;
+}

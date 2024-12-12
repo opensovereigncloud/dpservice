@@ -9,8 +9,7 @@
 #include "dp_ipaddr.h"
 #include "dp_lb.h"
 
-#include "inspect.h"
-
+static const char *g_lb_format;
 
 static int dp_inspect_lb(const void *key, const void *val)
 {
@@ -20,10 +19,13 @@ static int dp_inspect_lb(const void *key, const void *val)
 	char ip[INET6_ADDRSTRLEN];
 
 	DP_IPADDR_TO_STR(&lb_key->ip, ip);
-	printf(" ip: %15s, vni: %3u, lb_id: '%.*s'\n", ip, lb_key->vni, DP_LB_ID_MAX_LEN, lb_val->lb_id);
+	printf(g_lb_format,
+		DP_LB_ID_MAX_LEN, lb_val->lb_id,
+		lb_key->vni,
+		ip
+	);
 	return DP_OK;
 }
-
 
 static int dp_inspect_lb_id(const void *key, const void *val)
 {
@@ -33,17 +35,49 @@ static int dp_inspect_lb_id(const void *key, const void *val)
 	char ip[INET6_ADDRSTRLEN];
 
 	DP_IPADDR_TO_STR(&lb_key->ip, ip);
-	printf(" ip: %15s, vni: %3u, lb_id: '%.*s'\n", ip, lb_key->vni, DP_LB_ID_MAX_LEN, lb_id);
+	printf(g_lb_format,
+		DP_LB_ID_MAX_LEN, lb_id,
+		lb_key->vni,
+		ip
+	);
 	return DP_OK;
 }
 
 
-const struct dp_inspect_spec dp_inspect_lb_spec = {
-	.table_name = "loadbalancer_table",
-	.dump_func = dp_inspect_lb,
-};
+static void setup_format(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format)
+{
+	switch (format) {
+	case DP_INSPECT_OUTPUT_FORMAT_HUMAN:
+		out_spec->header = NULL;
+		g_lb_format = "lb_id: %.*s, vni: %3u, ip: %15s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_TABLE:
+		out_spec->header = "LB_ID                                 VNI  IP\n";
+		g_lb_format = "%-36.*s  %3u  %s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_CSV:
+		out_spec->header = "LB_ID,VNI,IP\n";
+		g_lb_format = "%.*s,%u,%s\n";
+		break;
+	case DP_INSPECT_OUTPUT_FORMAT_JSON:
+		out_spec->header = NULL;
+		g_lb_format = "{ \"lb_id\": \"%.*s\", \"vni\": %u, \"ip\": \"%s\" }";
+		break;
+	}
+}
 
-const struct dp_inspect_spec dp_inspect_lb_id_spec = {
-	.table_name = "loadbalancer_id_table",
-	.dump_func = dp_inspect_lb_id,
-};
+int dp_inspect_init_lb(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format)
+{
+	out_spec->table_name = "loadbalancer_table";
+	out_spec->dump_func = dp_inspect_lb;
+	setup_format(out_spec, format);
+	return DP_OK;
+}
+
+int dp_inspect_init_lb_id(struct dp_inspect_spec *out_spec, enum dp_inspect_output_format format)
+{
+	out_spec->table_name = "loadbalancer_id_table";
+	out_spec->dump_func = dp_inspect_lb_id;
+	setup_format(out_spec, format);
+	return DP_OK;
+}
