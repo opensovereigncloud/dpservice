@@ -35,9 +35,9 @@ const (
 )
 
 var (
-	ping, curl, verbose, list bool
-	fromAZ, toAZ, namespace   string
-	rerun                     []int
+	ping, curl, iperf, verbose, list bool
+	fromAZ, toAZ, namespace          string
+	rerun                            []int
 )
 
 type testCase struct {
@@ -58,6 +58,17 @@ type testDst struct {
 	name string
 }
 
+// Define the structure matching the iperf3 JSON output
+type IperfOutput struct {
+	End struct {
+		Streams []struct {
+			Sender struct {
+				BitsPerSecond float64 `json:"bits_per_second"`
+			} `json:"sender"`
+		} `json:"streams"`
+	} `json:"end"`
+}
+
 func main() {
 	var kubeConfigPath string
 
@@ -65,6 +76,7 @@ func main() {
 	flag.BoolVarP(&verbose, "verbose", "v", false, "Show verbose output")
 	flag.BoolVarP(&ping, "ping", "p", false, "If ping should be tested")
 	flag.BoolVarP(&curl, "curl", "c", false, "If curl should be tested")
+	flag.BoolVarP(&iperf, "iperf", "i", false, "If iperf should be run")
 	flag.BoolVarP(&list, "list", "l", false, "List previously run tests")
 	flag.IntSliceVarP(&rerun, "rerun", "r", []int{}, "Test ID to rerun")
 	flag.StringVarP(&fromAZ, "from-az", "f", "all", "Tests from specified AZ")
@@ -79,6 +91,12 @@ func main() {
 		testsFromFile := getTestsFromFile()
 		analyseResults(testsFromFile)
 		os.Exit(0)
+	}
+
+	// if iperf is enabled, no other tests will be run
+	if iperf {
+		ping = false
+		curl = false
 	}
 
 	// to prevent running tests on wrong cluster, kubeconfig has to be implicitly specified
@@ -126,28 +144,35 @@ func main() {
 		os.Exit(1)
 	}
 
-	// prepare test cases
-	testsToRun := prerpareTestCases(pods)
-	if len(testsToRun) == 0 {
-		fmt.Printf("Nothing to do; no test case matched the filter.\n")
-		os.Exit(0)
+	if curl || ping {
+		// prepare test cases
+		testsToRun := prerpareTestCases(pods)
+		if len(testsToRun) == 0 {
+			fmt.Printf("Nothing to do; no test case matched the filter.\n")
+			os.Exit(0)
+		}
+
+		// run tests
+		if len(rerun) > 0 {
+			fmt.Printf("Pods running: %d. Re-running selected tests.\n----------\n",
+				len(pods.Items))
+		} else {
+			fmt.Printf("Pods running: %d. Starting tests from %s to %s.\n----------\n",
+				len(pods.Items), fromAZ, toAZ)
+		}
+		testResults := runTests(kubeConfig, testsToRun)
+
+		// analyse test results and write to CLI
+		analyseResults(testResults)
+
+		// save test results to file
+		saveResultsToFile(testResults)
 	}
 
-	// run tests
-	if len(rerun) > 0 {
-		fmt.Printf("Pods running: %d. Re-running selected tests.\n----------\n",
-			len(pods.Items))
-	} else {
-		fmt.Printf("Pods running: %d. Starting tests from %s to %s.\n----------\n",
-			len(pods.Items), fromAZ, toAZ)
+	if iperf {
+		fmt.Println("===== Starting iperf tests =====")
+		testIperf(kubeConfig, pods)
 	}
-	testResults := runTests(kubeConfig, testsToRun)
-
-	// analyse test results and write to CLI
-	analyseResults(testResults)
-
-	// save test results to file
-	saveResultsToFile(testResults)
 }
 
 // list Running pods in specified namespace with filtered LabelSelector
@@ -172,6 +197,51 @@ func testPing(kubeConfig *rest.Config, pod *v1.Pod, ip string) (string, string, 
 func testCurl(kubeConfig *rest.Config, pod *v1.Pod, ip string) (string, string, error) {
 	command := fmt.Sprintf("curl -sIG %s", ip)
 	return podExec(kubeConfig, pod, command)
+}
+
+func testIperf(kubeConfig *rest.Config, pods *v1.PodList) {
+	for i := 0; i < len(pods.Items); i++ {
+		for j := 0; j < len(pods.Items); j++ {
+			if i != j {
+				iperfServer := pods.Items[i]
+				iperfClient := pods.Items[j]
+
+				if (getAZ(iperfClient.Spec.NodeName) == fromAZ || fromAZ == "all") && (getAZ(iperfServer.Spec.NodeName) == toAZ || toAZ == "all") {
+					_, _, err := podExec(kubeConfig, &iperfServer, "iperf3 -s -p 12345 -D")
+					if err != nil {
+						fmt.Println("Could not start iperf server: ", err)
+						return
+					}
+					stdout, _, err := podExec(kubeConfig, &iperfClient, fmt.Sprintf("iperf3 -c %s -p 12345 -n 10M -J", iperfServer.Status.PodIP))
+					if err != nil {
+						fmt.Println("Error running iperf client: ", err)
+					}
+					_, _, err = podExec(kubeConfig, &iperfServer, "sh -c 'pkill iperf3'")
+					if err != nil {
+						fmt.Println("Could not stop iperf server: ", err)
+						return
+					}
+
+					// Parse JSON into a Iperf3Output struct
+					var result IperfOutput
+					if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+						log.Fatalf("Failed to parse JSON: %v", err)
+					}
+
+					// Extract the sender's bandwidth
+					if len(result.End.Streams) > 0 {
+						senderBandwidth := result.End.Streams[0].Sender.BitsPerSecond / 1e9 // Convert bps to Gbps
+						fmt.Printf("Client: %s/%s, Server: %s/%s, Sender Bandwidth: %.2f Gbps\n",
+							color.YellowString(getAZ(iperfClient.Spec.NodeName)), iperfClient.Name,
+							color.YellowString(getAZ(iperfServer.Spec.NodeName)), iperfServer.Name,
+							senderBandwidth)
+					} else {
+						fmt.Println("No streams found in the output")
+					}
+				}
+			}
+		}
+	}
 }
 
 // execute command in pod and return Stdout, Stderr
@@ -267,44 +337,30 @@ func prerpareTestCases(pods *v1.PodList) []testCase {
 		}
 		id := uint16(1)
 		for _, pod := range pods.Items {
-			if getAZ(pod.Spec.NodeName) == fromAZ || fromAZ == "all" {
-				if ping {
-					for ip, dst := range testIps {
+			for ip, dst := range testIps {
+				if getAZ(pod.Spec.NodeName) == fromAZ || fromAZ == "all" {
+					currentTest := testCase{
+						From:   pod.Name,
+						FromAZ: getAZ(pod.Spec.NodeName),
+						FromIP: pod.Status.PodIP,
+						To:     dst.name,
+						ToAZ:   dst.AZ,
+						ToIP:   ip,
+					}
+					if ping {
 						if dst.AZ == toAZ || toAZ == "all" {
-							currentTest := testCase{
-								Id:     id,
-								From:   pod.Name,
-								FromIP: pod.Status.PodIP,
-								FromAZ: getAZ(pod.Spec.NodeName),
-								To:     dst.name,
-								ToAZ:   dst.AZ,
-								ToIP:   ip,
-								Kind:   "ping",
-							}
+							currentTest.Id = id
+							currentTest.Kind = "ping"
 							id++
 							testsToRun = append(testsToRun, currentTest)
 						}
 					}
-				}
-				if curl {
-					for ip, dst := range testIps {
+					if curl {
 						if dst.AZ == toAZ || toAZ == "all" {
-							currentTest := testCase{
-								Id:     id,
-								From:   pod.Name,
-								FromIP: pod.Status.PodIP,
-								FromAZ: getAZ(pod.Spec.NodeName),
-								To:     dst.name,
-								ToIP:   ip,
-								Kind:   "curl",
-							}
+							currentTest.Id = id
+							currentTest.Kind = "curl"
 							if strings.Contains(dst.AZ, "AZ") {
-								currentTest.ToAZ = dst.AZ
 								currentTest.ToIP = fmt.Sprintf("%s:%d", currentTest.ToIP, curlPort)
-							} else if dst.AZ == "Internet" {
-								currentTest.ToAZ = "Internet"
-							} else {
-								continue
 							}
 							id++
 							testsToRun = append(testsToRun, currentTest)

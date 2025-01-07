@@ -20,6 +20,8 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command: ["sh", "-c", "tail -f /dev/null"]
         terminationMessagePath: /dev/termination-log
+        ports:
+          - containerPort: 5201
       - name: nginx
         image: {{ .Values.nginx.repository }}
         ports:
