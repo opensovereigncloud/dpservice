@@ -2,6 +2,7 @@ stages:
   - mr_test
   - build
   - branch_test
+  - post-processing
 
 workflow:
   rules:
@@ -114,3 +115,10 @@ build-tester-and-test-branch:
   when: manual
   rules:
     - if: $CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == null
+
+include:
+  - component: 'gitlab.devops.telekom.de/cas-devs/osc/common/pipeline-community/components/mtr/configure-repo@stable'
+    inputs:
+      image-list-type: 'none'
+      version: 'stable'
+      stage: 'post-processing'
